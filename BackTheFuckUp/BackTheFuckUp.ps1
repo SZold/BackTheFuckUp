@@ -35,13 +35,16 @@ if (-not(Get-Module -Name BurntToast -ListAvailable)) {
     Install-Module -Name BurntToast -Force
 }
 
+$TargetPath = 'wscript.exe'
+$Parameters = ('"'+$PSScriptRoot+'\runhidden.vbs" "-InvokedFromURL -%1"');
+$ProceedAction = ($TargetPath + ' ' + $Parameters);
 $runMe = $PSScriptRoot+'\'+$MyInvocation.MyCommand.Name 
-#AddRegistryEntries -protocolName:'backupperscript'       -ProceedAction:('powershell.exe -ExecutionPolicy Bypass -File "'+$runMe+'" -InvokedFromURL -%1');
-AddRegistryEntries -protocolName:'backupperscript'       -ProceedAction:($PSScriptRoot+'\runhidden.vbs "-InvokedFromURL -%1"');
 
+CreateShortcuts -shortCutPath:($PSScriptRoot) -TargetPath:($TargetPath) -Parameters:($Parameters) 
+AddRegistryEntries -protocolName:'backupperscript' -ProceedAction:($ProceedAction);
 
-[BackUpper]$sajt = [BackUpper]::new("E:\Letöltések", "E:\temp\target");
-$sajt.WhiteListedExtensions = @(".txt");
+[BackUpper]$sajt = [BackUpper]::new("E:\", "E:\temp\target");
+#$sajt.WhiteListedExtensions = @(".txt");
 $results = $sajt.doDryRun();
 
 if($Verbose){
@@ -50,11 +53,8 @@ if($Verbose){
 }
 
 if($backupperscript -eq [BackTheFuckUpActivationType]::BackUp){
-    
     $sajt.doBackUp($results);
 }elseif($backupperscript -eq [BackTheFuckUpActivationType]::CheckOutBeforeBackUp){
-    $results | Sort-Object -Property actionType | Format-Table
-    $pass = Read-Host 'Should proceed with the back up? ' -AsSecureString
     $sajt.doBackUp($results);
 }else{
     $Nothing = ($results | Where {$_.actionType -eq [BackUpperActionType]::Nothing} | measure).Count
@@ -70,5 +70,4 @@ if($backupperscript -eq [BackTheFuckUpActivationType]::BackUp){
     New-BurntToastNotification -Header $BTHeader -Button $BTButton_Proceed, $BTButton_Check, $BTButton_Fuckoff  –Text (‘Back up Files: ’+($SaveToTarget+$SaveNewVersionToTarget)), 
                                                                                                      (‘Delete from backed up files: ’+$DeleteFromTarget), 
                                                                                                      (‘Do nothing about: ’+$Nothing)
-
 }

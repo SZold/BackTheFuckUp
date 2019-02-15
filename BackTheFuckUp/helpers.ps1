@@ -15,6 +15,20 @@
     }
 }
 
+Function CreateShortcuts($shortCutPath, $TargetPath, $Parameters){
+    $WshShell = New-Object -comObject WScript.Shell
+    
+    $Shortcut2 = $WshShell.CreateShortcut($shortCutPath+"\Shortcut_BackUp.lnk")
+    $Shortcut2.TargetPath = $TargetPath
+    $Shortcut2.Arguments = ($Parameters.Replace("%1", "backupperscript:BackUp"))
+    $Shortcut2.Save()
+
+    $Shortcut = $WshShell.CreateShortcut($shortCutPath+"\Shortcut_DryRun.lnk")
+    $Shortcut.TargetPath = $TargetPath
+    $Shortcut.Arguments = ($Parameters.Replace("%1", "backupperscript:DryRun"))
+    $Shortcut.Save()    
+}
+
 Function SplitURL(){
     if($URL.Length -gt 0){
         $InvokedFromURL = $true
