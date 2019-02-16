@@ -18,15 +18,45 @@
 Function CreateShortcuts($shortCutPath, $TargetPath, $Parameters){
     $WshShell = New-Object -comObject WScript.Shell
     
-    $Shortcut2 = $WshShell.CreateShortcut($shortCutPath+"\Shortcut_BackUp.lnk")
-    $Shortcut2.TargetPath = $TargetPath
-    $Shortcut2.Arguments = ($Parameters.Replace("%1", "backupperscript:BackUp"))
-    $Shortcut2.Save()
+    $shortcutFilePath = $shortCutPath+"\Shortcut_BackUp.lnk"
+    if(-Not (Test-Path -Path $shortcutFilePath )){
+        $Shortcut2 = $WshShell.CreateShortcut($shortcutFilePath)
+        $Shortcut2.TargetPath = $TargetPath
+        $Shortcut2.Arguments = ($Parameters.Replace("%1", "backupperscript:BackUp"))
+        $Shortcut2.Save()
+    }
+    
+    $shortcutFilePath = $shortCutPath+"\Shortcut_DryRun.lnk"
+    if(-Not (Test-Path -Path $shortcutFilePath )){
+        $Shortcut = $WshShell.CreateShortcut($shortcutFilePath)
+        $Shortcut.TargetPath = $TargetPath
+        $Shortcut.Arguments = ($Parameters.Replace("%1", "backupperscript:DryRun"))
+        $Shortcut.Save()    
+    }
+}
 
-    $Shortcut = $WshShell.CreateShortcut($shortCutPath+"\Shortcut_DryRun.lnk")
-    $Shortcut.TargetPath = $TargetPath
-    $Shortcut.Arguments = ($Parameters.Replace("%1", "backupperscript:DryRun"))
-    $Shortcut.Save()    
+function GetFriendlySize($BytesParam) {
+$Bytes = [math]::Abs($BytesParam);
+    if ($Bytes -ge 1GB)
+    {
+        $Value = '{0:F2} GB' -f ($Bytes / 1GB)
+    }
+    elseif ($Bytes -ge 1MB)
+    {
+        $Value = '{0:F2} MB' -f ($Bytes / 1MB)
+    }
+    elseif ($Bytes -ge 1KB)
+    {
+        $Value = '{0:F2} KB' -f ($Bytes / 1KB)
+    }
+    else
+    {
+        $Value = '{0} bytes' -f $Bytes
+    }
+    if($BytesParam -ne $Bytes){
+        $Value = '-'+$Value;
+    }
+    return $Value;
 }
 
 Function SplitURL(){

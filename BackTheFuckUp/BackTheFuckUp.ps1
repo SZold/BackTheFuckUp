@@ -4,6 +4,8 @@
     [switch]$Verbose = $false
 )
 
+$Stopwatch = [System.Diagnostics.Stopwatch]::StartNew();
+
 #Using
 . ($PSScriptRoot+'\BackUpper.ps1')
 . ($PSScriptRoot+'\helpers.ps1')
@@ -17,15 +19,16 @@ Enum BackTheFuckUpActivationType
 
 if(($backupperscript -eq [BackTheFuckUpActivationType]::DryRun) -Or 
    ($backupperscript -eq [BackTheFuckUpActivationType]::BackUp) ){
-
+    #The console should be hidden
 }elseif($backupperscript -eq [BackTheFuckUpActivationType]::CheckOutBeforeBackUp){
-
+    #The console should be shown
 }else{
     #Should be during development
     $Verbose = $true
 }
 
 if($Verbose){
+    Write-Host ("StopWatch: "+$Stopwatch.Elapsed.TotalMinutes)
     Write-Host ("Verbose: "+$Verbose)
     Write-Host ("InvokedFromURL: "+$InvokedFromURL)
     Write-Host ("backupperscript: "+$backupperscript)
@@ -38,36 +41,43 @@ if (-not(Get-Module -Name BurntToast -ListAvailable)) {
 $TargetPath = 'wscript.exe'
 $Parameters = ('"'+$PSScriptRoot+'\runhidden.vbs" "-InvokedFromURL -%1"');
 $ProceedAction = ($TargetPath + ' ' + $Parameters);
-$runMe = $PSScriptRoot+'\'+$MyInvocation.MyCommand.Name 
 
 CreateShortcuts -shortCutPath:($PSScriptRoot) -TargetPath:($TargetPath) -Parameters:($Parameters) 
 AddRegistryEntries -protocolName:'backupperscript' -ProceedAction:($ProceedAction);
 
-[BackUpper]$sajt = [BackUpper]::new("E:\", "E:\temp\target");
-#$sajt.WhiteListedExtensions = @(".txt");
-$results = $sajt.doDryRun();
+[BackUpper]$sajt = [BackUpper]::new("E:\temp\source", "E:\temp\target");
+#[BackUpper]$sajt = [BackUpper]::new("E:\", "D:\");
+$sajt.WhiteListedExtensions = @(".txt", ".exe", ".avi", ".doc", ".mp3");
 
 if($Verbose){
-    $results | Sort-Object -Property actionType | Format-Table
+    #$results | Sort-Object -Property actionType | Format-Table
     Write-Host $ProceedAction 
 }
 
 if($backupperscript -eq [BackTheFuckUpActivationType]::BackUp){
-    $sajt.doBackUp($results);
+    $ProgressBar = New-BTProgressBar -Status ('Backing up "'+$this.SourcePath+'"') -Indeterminate
+    New-BurntToastNotification –Text (‘Backing up from "'+$this.SourcePath+'"’) -ProgressBar $ProgressBar –UniqueIdentifier 'sajt001' 
+    $sajt.doBackUp();
+    sleep(5)
+    New-BurntToastNotification –Text (‘Backing up from "'+$this.SourcePath+'" Done’)  –UniqueIdentifier 'sajt001' 
 }elseif($backupperscript -eq [BackTheFuckUpActivationType]::CheckOutBeforeBackUp){
-    $sajt.doBackUp($results);
+    $sajt.doBackUp();
 }else{
-    $Nothing = ($results | Where {$_.actionType -eq [BackUpperActionType]::Nothing} | measure).Count
-    $SaveToTarget = ($results | Where {$_.actionType -eq [BackUpperActionType]::SaveToTarget} | measure).Count
-    $DeleteFromTarget = ($results | Where {$_.actionType -eq [BackUpperActionType]::DeleteFromTarget} | measure).Count
-    $SaveNewVersionToTarget = ($results | Where {$_.actionType -eq [BackUpperActionType]::SaveNewVersionToTarget} | measure).Count
+    $results = $sajt.doBackUp($true);
+    
+    $deleteSize = GetFriendlySize($results[[BackUpperActionType]::DeleteFromTarget].FileSizeDelta);
+    $backingUpSize = GetFriendlySize($results[[BackUpperActionType]::SaveToTarget].FileSizeDelta + $results[[BackUpperActionType]::SaveNewVersionToTarget].FileSizeDelta);
+    $copySize = GetFriendlySize($results[[BackUpperActionType]::SaveToTarget].FileSizeSum + $results[[BackUpperActionType]::SaveNewVersionToTarget].FileSizeSum);
+
+    $backingUp = ‘Back up: ’+ ($results[[BackUpperActionType]::SaveToTarget].FileCount + $results[[BackUpperActionType]::SaveNewVersionToTarget].FileCount)+' ('+ $backingUpSize +')';
+    $deleting =  ‘Delete: ’+ ($results[[BackUpperActionType]::DeleteFromTarget].FileCount)+' ('+ $deleteSize +')';
+    $copy = ‘Copy size: ’+ ($results[[BackUpperActionType]::Nothing].FileCount);
 
     $BTHeader = New-BTHeader -Title 'Back The Fuck Up' -Id 1
-    #$BTButton_Proceed = New-BTButton -Content 'Proceed' -Arguments ($protocoName +":") -ActivationType Protocol
     $BTButton_Proceed = New-BTButton -Content 'Proceed' -Arguments ("backupperscript:"+[BackTheFuckUpActivationType]::BackUp) -ActivationType Protocol
     $BTButton_Check = New-BTButton -Content 'Check' -Arguments("backupperscript:"+[BackTheFuckUpActivationType]::CheckOutBeforeBackUp) -ActivationType Protocol
     $BTButton_Fuckoff = New-BTButton -Content 'Fuck off' -Dismiss
-    New-BurntToastNotification -Header $BTHeader -Button $BTButton_Proceed, $BTButton_Check, $BTButton_Fuckoff  –Text (‘Back up Files: ’+($SaveToTarget+$SaveNewVersionToTarget)), 
-                                                                                                     (‘Delete from backed up files: ’+$DeleteFromTarget), 
-                                                                                                     (‘Do nothing about: ’+$Nothing)
+    New-BurntToastNotification -Header $BTHeader -Button $BTButton_Proceed, $BTButton_Fuckoff  –Text ($backingUp), 
+                                                                                                     ($deleting), 
+                                                                                                     ($copy)
 }
