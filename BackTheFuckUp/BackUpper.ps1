@@ -11,10 +11,10 @@ Enum BackUpperCompareType
 
 Enum BackUpperActionType
 {
- Nothing = 0
- SaveToTarget = 1
- DeleteFromTarget = 2
- SaveNewVersionToTarget = 3
+ Nothing = [math]::pow( 2, 0 )
+ SaveToTarget = [math]::pow( 2, 1 )
+ DeleteFromTarget = [math]::pow( 2, 2 )
+ SaveNewVersionToTarget = [math]::pow( 2, 3 )
 }
 
 class BackUpperFile

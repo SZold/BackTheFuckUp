@@ -1,15 +1,15 @@
 ﻿Enum LogBookType
 {  
-     Log          = 1
-     ChapterStart = 2
-     ChapterEnd   = 4
-     Error        = 8
-     Exception    = 16
-     Important    = 32
-     Success      = 64
-     Debug        = 128
-     Detail       = 256
-     FullDetail   = 512
+     Log          = [math]::pow( 2, 0 )
+     ChapterStart = [math]::pow( 2, 1 )
+     ChapterEnd   = [math]::pow( 2, 2 )
+     Error        = [math]::pow( 2, 3 )
+     Exception    = [math]::pow( 2, 4 )
+     Important    = [math]::pow( 2, 5 )
+     Success      = [math]::pow( 2, 6 )
+     Debug        = [math]::pow( 2, 7 )
+     Detail       = [math]::pow( 2, 8 )
+     FullDetail   = [math]::pow( 2, 9 )
 }
 Enum LogBookLevel
 {  
@@ -23,8 +23,8 @@ Enum LogBookLevel
 }
 Enum LogBookOutput
 {  
-    File    = 1
-    Console = 2
+    File    = [math]::pow( 2, 0 )
+    Console = [math]::pow( 2, 1 )
 }
 
 class LogEntry{
