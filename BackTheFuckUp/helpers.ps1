@@ -50,36 +50,19 @@ function AddRegistryEntries($protocolName, $ProceedAction){
     }
 }
 
-Function CreateShortcuts($shortCutPath, $TargetPath, $Parameters){
+Function CreateShortcut($shortcutFilePath, $TargetPath, $Parameters){
     $WshShell = New-Object -comObject WScript.Shell
     
-    $shortcutFilePath = $shortCutPath+"\Shortcut_BackUp.lnk"
     if(-Not (Test-Path -Path $shortcutFilePath )){
         doLog -entry ("Add Shortcut ($shortcutFilePath)")
         LogBook_TabIn;
         doLog -entry ("Shortcut TargetPath ($TargetPath)") -Type Detail
-        doLog -entry ("Shortcut Arguments ("+$Parameters.Replace("%1", "backupperscript:BackUp")+")") -Type Detail
+        doLog -entry ("Shortcut Arguments ("+$Parameters+")") -Type Detail
         $Shortcut = $WshShell.CreateShortcut($shortcutFilePath)
         $Shortcut.TargetPath = $TargetPath
-        $Shortcut.Arguments = ($Parameters.Replace("%1", "backupperscript:BackUp"))
+        $Shortcut.Arguments = ($Parameters)
         $Shortcut.Save()
         doLog -entry ("Shortcut saved ($shortcutFilePath)") -Type Success
-        LogBook_TabOut;
-    }else{    
-        doLog -entry ("Shortcut Found ($shortcutFilePath)") -Type Detail
-    }
-    
-    $shortcutFilePath = $shortCutPath+"\Shortcut_DryRun.lnk"
-    if(-Not (Test-Path -Path $shortcutFilePath )){
-        doLog -entry ("Add Shortcut ($shortcutFilePath)")
-        LogBook_TabIn;
-        doLog -entry ("Shortcut TargetPath ($TargetPath)") -Type Detail
-        doLog -entry ("Shortcut Arguments ("+$Parameters.Replace("%1", "backupperscript:DryRun")+")") -Type Detail
-        $Shortcut = $WshShell.CreateShortcut($shortcutFilePath)
-        $Shortcut.TargetPath = $TargetPath
-        $Shortcut.Arguments = ($Parameters.Replace("%1", "backupperscript:DryRun"))
-        $Shortcut.Save()  
-        doLog -entry ("Shortcut saved ($shortcutFilePath)") -Type Success  
         LogBook_TabOut;
     }else{    
         doLog -entry ("Shortcut Found ($shortcutFilePath)") -Type Detail

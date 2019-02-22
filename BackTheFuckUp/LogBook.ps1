@@ -1,4 +1,4 @@
-﻿Enum LogBookType
+Enum LogBookType
 {  
      Log          = 1
      ChapterStart = 2
@@ -66,6 +66,7 @@ class LogEntry{
 }
 
 class LogBook{
+    $LogBook_LogFileName = ""
     $LogBook_StartTime = 0
     $LogBook_LastLogTime = 0
     $LogBook_Tab = 0
@@ -76,6 +77,7 @@ class LogBook{
     LogBook(){
         $this.LogBook_StartTime = [System.DateTime]::Now
         $this.LogBook_Level = [LogBookLevel]::Level5;
+        $this.LogBook_LogFileName = $PSScriptRoot+"\log\Log_"+($this.LogBook_StartTime.ToString("yyyy-MM-dd-HH"))+".log"
 
         for($i = 0; $i -lt [Enum]::GetValues([LogBookLevel]).Count; $i++){
             $this.LogBookLevels[$i] = [LogBookType]::new();        
@@ -95,10 +97,15 @@ class LogBook{
 
         [LogEntry]$log = [LogEntry]::new($entry, $Type, $this.LogBook_Tab, $this.LogBook_StartTime, $this.LogBook_LastLogTime);
         
-        if(($this.LogBook_Output -band [LogBookOutput]::File) -and
+        if(($this.LogBook_Output -band [LogBookOutput]::Console) -and
             $this.isAllowed([LogBookLevel]::Level6, $Type))
         {
             $this.WriteHost($log);
+        }
+        if(($this.LogBook_Output -band [LogBookOutput]::File) -and
+            $this.isAllowed([LogBookLevel]::Level6, $Type))
+        {
+            $this.WriteFile($log);
         }
     
         if($Type -eq [LogBookType]::ChapterStart){ $this.TabIn(); }
@@ -114,6 +121,13 @@ class LogBook{
     TabOut(){$this.TabOut(1);}
     TabOut([int]$num = 1){
         $this.LogBook_Tab -= $num;
+    }
+
+    WriteFile([LogEntry]$log){
+        if (!(Test-Path $this.LogBook_LogFileName)){
+           New-Item $this.LogBook_LogFileName -type "file" -Force | Out-Null
+        }
+        $log.ToString() | Out-File $this.LogBook_LogFileName -Force -Append        
     }
 
     WriteHost([LogEntry]$log){    

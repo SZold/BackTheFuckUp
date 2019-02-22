@@ -30,6 +30,7 @@ if(($backupperscript -eq [BackTheFuckUpActivationType]::DryRun) -Or
     $Verbose = $true
 }
 
+doLog -entry "-------------------------------------------------------------------------------------"
 doLog -entry "Start Backupping" -type ChapterStart
 doLog -entry ("Verbose: "+$Verbose) -Type Detail
 doLog -entry ("InvokedFromURL: "+$InvokedFromURL) -Type Detail
@@ -44,7 +45,10 @@ $Parameters = ('"'+$PSScriptRoot+'\runhidden.vbs" "-InvokedFromURL -%1"');
 $ProceedAction = ($TargetPath + ' ' + $Parameters);
 
 AddRegistryEntries -protocolName:'backupperscript' -ProceedAction:($ProceedAction);
-CreateShortcuts -shortCutPath:($PSScriptRoot) -TargetPath:($TargetPath) -Parameters:($Parameters) 
+CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_BackUp.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:BackUp")) 
+CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_DryRun.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:DryRun")) 
+$command = "Get-ChildItem '$PSScriptRoot\log' | sort LastWriteTime | select -last 1 | Get-Content -Wait "
+CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_ViewLastLog.lnk") -TargetPath:("powershell") -Parameters:(" -nologo -command `"&{$command}`"" ) 
 
 [BackUpper]$sajt = [BackUpper]::new("E:\temp\source", "E:\temp\target");
 #[BackUpper]$sajt = [BackUpper]::new("E:\", "C:\temp\target");
