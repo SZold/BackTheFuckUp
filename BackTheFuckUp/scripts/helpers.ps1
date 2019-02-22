@@ -42,7 +42,7 @@ function AddRegistryEntries($protocolName, $ProceedAction){
             New-Item ($registryPath +'\shell\open\command') -Force | New-ItemProperty -Name '(default)' -PropertyType String -Value $ProceedAction -Force  | Out-Null
             doLog -entry ("Registry entries added to ($registryPath)") -Type Success
         }else{
-            doLog -entry ("Administrative Rights needed!") -Type Exception
+            doLog -entry ("{%ADMIN_RIGHTS_NEEDED%}") -Type Exception
         }
         LogBook_TabOut;
     }else{    
@@ -73,19 +73,19 @@ function GetFriendlySize($BytesParam) {
 $Bytes = [math]::Abs($BytesParam);
     if ($Bytes -ge 1GB)
     {
-        $Value = '{0:F2} GB' -f ($Bytes / 1GB)
+        $Value = '{0:F2} {%FILESIZE_GB%}' -f ($Bytes / 1GB)
     }
     elseif ($Bytes -ge 1MB)
     {
-        $Value = '{0:F2} MB' -f ($Bytes / 1MB)
+        $Value = '{0:F2} {%FILESIZE_MB%}' -f ($Bytes / 1MB)
     }
     elseif ($Bytes -ge 1KB)
     {
-        $Value = '{0:F2} KB' -f ($Bytes / 1KB)
+        $Value = '{0:F2} {%FILESIZE_KB%}' -f ($Bytes / 1KB)
     }
     else
     {
-        $Value = '{0} bytes' -f $Bytes
+        $Value = '{0} {%FILESIZE_BYTE%}' -f $Bytes
     }
     if($BytesParam -ne $Bytes){
         $Value = '-'+$Value;
