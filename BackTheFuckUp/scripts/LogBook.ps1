@@ -37,8 +37,9 @@ function LogBook_GetTabs($tab){
 }
 
 class LogBookOutputConfig{
+    [LogBookOutput]$Output = [LogBookOutput]::new();
     $FileNameDateFormat = "yyyy-MM-dd-HH"
-    $Level = [LogBookLevel]::Level0
+    [LogBookLevel]$Level = [LogBookLevel]::Level0
     $FileName = "Log_{_FILENAMEDATEFORMAT_}.log"
 }
 class LogBookConfig{
@@ -55,14 +56,20 @@ class LogEntry{
     $entry = "";
     $tab = "";
     $type = [LogBookType]::Log;
+    [LogBook]$LogBook = $null;
 
-    LogEntry($entry, $type, $tab, $StartTime, $LastTime){
+    LogEntry($entry, $type, [LogBook]$LogBook){
+        $this.LogBook = $LogBook;
         $this.now = [System.DateTime]::Now;
-        $this.deltaStart = $this.now.Add(-$StartTime);
-        $this.deltaLast = $this.now.Add(-$LastTime);
+        $this.deltaStart = $this.now.Add(-$this.LogBook.LogBook_StartTime);
+        if($this.LogBook.LogBook_LastLogTime -ne 0){
+            $this.deltaLast = $this.now.Add(-$this.LogBook.LogBook_LastLogTime);
+        }else{
+            $this.deltaLast = $this.now.Add(-$this.now)
+        }
         $this.entry = $entry;
         $this.type = $type;
-        $this.tab = $tab;
+        $this.tab = $this.LogBook.LogBook_Tab;
     }
     
     [string]getTabs(){
@@ -71,9 +78,9 @@ class LogEntry{
     
     [string]ToString(){
         $log = ""
-        $log += "["+($this.now.ToString("yyyy-MM-dd HH:mm:ss.fff"))+"]";
-        $log += "["+($this.deltaStart.ToString("mm:ss.fff"))+"]";
-        $log += "["+($this.deltaLast.ToString("mm:ss.fff"))+"]";
+        $log += "["+($this.now.ToString($this.LogBook.config.DateTimeFormat))+"]";
+        $log += "["+($this.deltaStart.ToString($this.LogBook.config.DeltaTimeFormat))+"]";
+        $log += "["+($this.deltaLast.ToString($this.LogBook.config.DeltaTimeFormat))+"]";
         $log += "["+($this.type.ToString().subString(0, [System.Math]::Min(8, $this.type.ToString().Length)).PadRight(8, " ") )+"]";
 
         $log += " "+$this.getTabs()+$this.entry;
@@ -84,9 +91,9 @@ class LogEntry{
         $log += $this.getTabs()
         $log += "<Log ";
         $log += "Type=`""+($this.type.ToString())+"`" ";
-        $log += "LogTime=`""+($this.now.ToString("yyyy-MM-dd HH:mm:ss.fff"))+"`" ";
-        $log += "deltaStart=`""+($this.deltaStart.ToString("mm:ss.fff"))+"`" ";
-        $log += "deltaLast=`""+($this.deltaLast.ToString("mm:ss.fff"))+"`">";
+        $log += "LogTime=`""+($this.now.ToString($this.LogBook.config.DateTimeFormat))+"`" ";
+        $log += "deltaStart=`""+($this.deltaStart.ToString($this.LogBook.config.DeltaTimeFormat))+"`" ";
+        $log += "deltaLast=`""+($this.deltaLast.ToString($this.LogBook.config.DeltaTimeFormat))+"`">";
         $log += $this.entry;
         $log += "</"+($this.type.ToString())+">";
         return $log;
@@ -95,8 +102,7 @@ class LogEntry{
 }
 
 class LogBook{
-    $LogBook_LogFileName = ""
-    $LogBook_LogXMLName = ""
+    [LogBookConfig]$config = [LogBookConfig]::new();
     $LogBook_StartTime = 0
     $LogBook_LastLogTime = 0
     $LogBook_Tab = 0
@@ -104,11 +110,24 @@ class LogBook{
     [LogBookOutput]$LogBook_Output = [LogBookOutput]::File -bor [LogBookOutput]::Console -bor [LogBookOutput]::XML;
     [LogBookType[]]$LogBookLevels = [LogBookType[]]::new([Enum]::GetValues([LogBookLevel]).Count);
 
-    LogBook(){
+    
+    LogBook(){$this.Init($null);}
+    LogBook($config){$this.Init($config);}
+    hidden Init($config) { 
+        if($null -eq $config){
+            $outputConfig =  [LogBookOutputConfig]::new();
+            $outputConfig.Level = [LogBookLevel]::Level1;
+            $outputConfig.Output = [LogBookOutput]::Console;
+
+            $this.config.DateTimeFormat  = "MM-dd-yyyy HH:mm:ss.fff"   
+            $this.config.DeltaTimeFormat = "mm:ss.fff"   
+            $this.config.OutputConfigs = @($outputConfig);
+        }else{
+            $this.config = $config;
+        }
+
         $this.LogBook_StartTime = [System.DateTime]::Now
         $this.LogBook_Level = [LogBookLevel]::Level5;
-        $this.LogBook_LogFileName = $PSScriptRoot+"\log\Log_"+($this.LogBook_StartTime.ToString("yyyy-MM-dd-HH"))+".log"
-        $this.LogBook_LogXMLName = $PSScriptRoot+"\log\Log_"+($this.LogBook_StartTime.ToString("yyyy-MM-dd-HH"))+".xml"
 
         for($i = 0; $i -lt [Enum]::GetValues([LogBookLevel]).Count; $i++){
             $this.LogBookLevels[$i] = [LogBookType]::new();        
@@ -122,37 +141,48 @@ class LogBook{
         $this.LogBookLevels[[LogBookLevel]::Level6 -as [int]] = [LogBookType]::FullDetail;
     }
 
+
     doLog([string]$entry, [LogBookType]$Type = [LogBookType]::Log){
         if($Type -eq [LogBookType]::ChapterEnd){ $this.TabOut(); }
 
-        [LogEntry]$log = [LogEntry]::new($entry, $Type, $this.LogBook_Tab, $this.LogBook_StartTime, $this.LogBook_LastLogTime);
+        [LogEntry]$log = [LogEntry]::new($entry, $Type, $this);        
+        foreach($Output in $this.config.OutputConfigs ){ 
+            if($this.isAllowed($Output.Level, $Type)){
+                if($Output.Output -eq [LogBookOutput]::Console)
+                {
+                    $this.WriteHost($log);
+                }
+                if($Output.Output -eq [LogBookOutput]::File)
+                {
+                    $this.WriteFile($log, $Output);
+                }
+                if($Output.Output -eq [LogBookOutput]::XML)
+                {
+                    $this.WriteXML($log, $Output);
+                }                
+            }    
+        }
         
-        if(($this.LogBook_Output -band [LogBookOutput]::Console) -and
-            $this.isAllowed([LogBookLevel]::Level6, $Type))
-        {
-            $this.WriteHost($log);
-        }
-        if(($this.LogBook_Output -band [LogBookOutput]::File) -and
-            $this.isAllowed([LogBookLevel]::Level6, $Type))
-        {
-            $this.WriteFile($log);
-        }
-        if(($this.LogBook_Output -band [LogBookOutput]::XML) -and
-            $this.isAllowed([LogBookLevel]::Level6, $Type))
-        {
-            $this.WriteXML($log);
-        }
     
         if($Type -eq [LogBookType]::ChapterStart){ $this.TabIn(); }
 
         $this.LogBook_LastLogTime = $log.now;
+
+        if($Type -eq [LogBookType]::Exception){            
+            exit 1
+        }
     }
     
     TabIn(){$this.TabIn(1);}
-    TabIn([int]$num = 1){
-        $entry = (LogBook_GetTabs($this.LogBook_Tab))
-        $entry += "<Tab>"
-        $this.WriteXML($entry);
+    TabIn([int]$num = 1){        
+        foreach($Output in $this.config.OutputConfigs ){
+            if($Output.Type -band [LogBookOutput]::XML)
+            {
+                $entry = (LogBook_GetTabs($this.LogBook_Tab))
+                $entry += "<Tab>"
+                $this.WriteXML($entry, $Output);
+            }
+        }
 
         $this.LogBook_Tab += $num;
     }
@@ -160,37 +190,44 @@ class LogBook{
     TabOut(){$this.TabOut(1);}
     TabOut([int]$num = 1){
         $this.LogBook_Tab -= $num;
-
-        $entry = (LogBook_GetTabs($this.LogBook_Tab) )
-        $entry += "</Tab>"
-        $this.WriteXML($entry);
+        
+        
+        foreach($Output in $this.config.OutputConfigs ){
+            if($Output.Type -band [LogBookOutput]::XML)
+            {
+                $entry = (LogBook_GetTabs($this.LogBook_Tab))
+                $entry += "</Tab>"
+                $this.WriteXML($entry, $Output);
+            }
+        }
     }
     
-    WriteFile([LogEntry]$log){
-        if (!(Test-Path $this.LogBook_LogFileName)){
-           New-Item $this.LogBook_LogFileName -type "file" -Force | Out-Null
+    WriteFile([LogEntry]$log, [LogBookOutputConfig]$Output){
+        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATEFORMAT_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
+        if (!(Test-Path $filepath)){
+           New-Item $filepath -type "file" -Force | Out-Null
         }
-        $log.ToString() | Out-File $this.LogBook_LogFileName -Force -Append        
+        $log.ToString() | Out-File $filepath -Force -Append        
     }
     
-    WriteXML([string]$line){
-        if (!(Test-Path $this.LogBook_LogXMLName)){
-           New-Item $this.LogBook_LogXMLName -type "file" -Force | Out-Null
+    WriteXML([string]$line, [LogBookOutputConfig]$Output){
+        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATEFORMAT_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
+        if (!(Test-Path $filepath)){
+           New-Item $filepath -type "file" -Force | Out-Null
         }
-        $line | Out-File $this.LogBook_LogXMLName -Force -Append        
+        $line.ToString() | Out-File $filepath -Force -Append         
     }
-    WriteXML([LogEntry]$log){
-        if (!(Test-Path $this.LogBook_LogXMLName)){
-           New-Item $this.LogBook_LogXMLName -type "file" -Force | Out-Null
+    WriteXML([LogEntry]$log, [LogBookOutputConfig]$Output){
+        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATEFORMAT_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
+        if (!(Test-Path $filepath)){
+           New-Item $filepath -type "file" -Force | Out-Null
         }
-        $log.ToXML() | Out-File $this.LogBook_LogXMLName -Force -Append        
+        $log.ToString() | Out-File $filepath -Force -Append        
     }
 
     WriteHost([LogEntry]$log){    
         if($log.type -eq [LogBookType]::Exception){
-            #Write-Error ($log.ToString())
             Write-Host ($log.ToString()) -foregroundcolor "red"  -backgroundcolor "black" 
-            exit 1
         }
         elseif($log.type -eq [LogBookType]::Error){
             Write-Host ($log.ToString()) -foregroundcolor "red"  -backgroundcolor "black"
