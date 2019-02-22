@@ -1,9 +1,10 @@
-﻿#include scripts
+#include scripts
 . ($PSScriptRoot+'\helpers.ps1')
 #end include scripts
 
 Enum BackUpperCompareType
 {  
+ Exist
  Size
  ModificationDate 
  ExtensionAllowed

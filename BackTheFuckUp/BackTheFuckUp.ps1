@@ -47,7 +47,7 @@ $ProceedAction = ($TargetPath + ' ' + $Parameters);
 AddRegistryEntries -protocolName:'backupperscript' -ProceedAction:($ProceedAction);
 CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_BackUp.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:BackUp")) 
 CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_DryRun.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:DryRun")) 
-$command = "Get-ChildItem '$PSScriptRoot\log' | sort LastWriteTime | select -last 1 | Get-Content -Wait "
+$command = "Get-ChildItem '$PSScriptRoot\log\*.log' | sort LastWriteTime | select -last 1 | Get-Content -Wait "
 CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_ViewLastLog.lnk") -TargetPath:("powershell") -Parameters:(" -nologo -command `"&{$command}`"" ) 
 
 [BackUpper]$sajt = [BackUpper]::new("E:\temp\source", "E:\temp\target");
@@ -58,11 +58,11 @@ doLog -entry ("ProceedAction: ("+$ProceedAction+")") -Type Detail
 
 if($backupperscript -eq [BackTheFuckUpActivationType]::BackUp){
     doLog -entry ("Do Back Up") -Type Important
-    $ProgressBar = New-BTProgressBar -Status ('Backing up "'+$this.SourcePath+'"') -Indeterminate 
-    New-BurntToastNotification –Text (‘Backing up from "'+$this.SourcePath+'"’) -ProgressBar $ProgressBar –UniqueIdentifier 'sajt001' 
+    $ProgressBar = New-BTProgressBar -Status ('{%BACKING_UP_FILE%}') -Indeterminate 
+    New-BurntToastNotification –Text (‘{%BACKING_UP_PATH%}’) -ProgressBar $ProgressBar –UniqueIdentifier 'sajt001' 
     $sajt.doBackUp();
     sleep(5)
-    New-BurntToastNotification –Text (‘Backing up from "'+$this.SourcePath+'" Done’)  –UniqueIdentifier 'sajt001' 
+    New-BurntToastNotification –Text (‘{%BACKING_UP_DONE%}’)  –UniqueIdentifier 'sajt001' 
 }elseif($backupperscript -eq [BackTheFuckUpActivationType]::CheckOutBeforeBackUp){
     doLog -entry ("Do Check Out") -Type Important
     $sajt.doBackUp();
@@ -88,9 +88,9 @@ if($backupperscript -eq [BackTheFuckUpActivationType]::BackUp){
                                   "Free:"+$freeTargetSpace +" | "+
                                       "Δ"+($freeTargetSpace - $deltaSize ) +")") -Type FullDetail
 
-    $line1 = ‘Back up: ’+ ($results[[BackUpperActionType]::SaveToTarget].FileCount + $results[[BackUpperActionType]::SaveNewVersionToTarget].FileCount)+' file(s)';
-    $line2 =  ‘Size: '+ $deltaSizeFriendly ;
-    $line3 = ‘Free space on target: ’+$freeTargetSpaceFriendly ;    
+    $line1 = ‘{%BACKUP_COUNT%}: ’+ ($results[[BackUpperActionType]::SaveToTarget].FileCount + $results[[BackUpperActionType]::SaveNewVersionToTarget].FileCount)+' {%BACKUP_FILES%}';
+    $line2 =  ‘{%BACKUP_SIZE%}: '+ $deltaSizeFriendly ;
+    $line3 = ‘{%FREE_SPACE_LEFT%}: ’+$freeTargetSpaceFriendly ;    
     doLog -entry ("Got Notification texts")    
     LogBook_TabIn;
     doLog -entry ("line1: $line1") -type Detail     
@@ -100,14 +100,14 @@ if($backupperscript -eq [BackTheFuckUpActivationType]::BackUp){
     
     if($deltaSize -gt $freeTargetSpace){
         doLog -entry ("deltaSize > freeTargetSpace | $deltaSize > $freeTargetSpace | "+($deltaSize -gt $freeTargetSpace)) -Type Important
-        $BTHeader = New-BTHeader -Title 'Not enough free space to Back Up' -Id 1 
-        $BTButton_Proceed = New-BTButton -Content 'See Storage' -Arguments ("ms-settings:storagesense") -ActivationType Protocol
+        $BTHeader = New-BTHeader -Title '{%NOT_ENOUGH_FREE_SPACE%}' -Id 1 
+        $BTButton_Proceed = New-BTButton -Content '{%SEE_STORAGE%}' -Arguments ("ms-settings:storagesense") -ActivationType Protocol
     }else{
-        $BTHeader = New-BTHeader -Title 'Back The Fuck Up' -Id 1 
-        $BTButton_Proceed = New-BTButton -Content 'Proceed' -Arguments ("backupperscript:"+[BackTheFuckUpActivationType]::BackUp) -ActivationType Protocol
+        $BTHeader = New-BTHeader -Title '{%NOTIFICATION_TITLE%}' -Id 1 
+        $BTButton_Proceed = New-BTButton -Content '{%PROCEED%}' -Arguments ("backupperscript:"+[BackTheFuckUpActivationType]::BackUp) -ActivationType Protocol
     }
-    $BTButton_Check = New-BTButton -Content 'Check' -Arguments("backupperscript:"+[BackTheFuckUpActivationType]::CheckOutBeforeBackUp) -ActivationType Protocol
-    $BTButton_Fuckoff = New-BTButton -Content 'Fuck off' -Dismiss
+    $BTButton_Check = New-BTButton -Content '{%CHECK%}' -Arguments("backupperscript:"+[BackTheFuckUpActivationType]::CheckOutBeforeBackUp) -ActivationType Protocol
+    $BTButton_Fuckoff = New-BTButton -Content '{%FUCK_OFF%}' -Dismiss
     
     doLog -entry ("Send Toast Notification")    
     New-BurntToastNotification -Header $BTHeader -Button $BTButton_Proceed, $BTButton_Fuckoff  –Text ($line1), 
