@@ -39,49 +39,45 @@ function LogBook_TabOut([int]$num = 1){
     $script:LogBook.TabOut($num);
 }
 
-function doLogJobOutput($JobName, $Output, [LogBookType]$LogType){
+function cutpad([string]$string, [int]$num){
+    return $string.subString(0, [System.Math]::Min($num, $string.Length)).PadRight($num, " ") 
+}
+
+function doLogJob([System.Management.Automation.Job]$Job){        
+    $Output = $Job.Information.ReadAll();
+    
     LogBook_TabIn;
     if($Output.Count -gt 0){
         foreach($Out in $Output){
-            $text =  $out.ErrorDetail + $out.ToString();
-            $logEntry = [LogEntry]::new($text, $LogType, $script:Logbook);
-            $logEntry.LogSource = ($Job | Get-Job).Name;
-            $script:Logbook.doLogEntry($logEntry);
+            [System.Management.Automation.InformationRecord]$IR =  $out;
+            if($IR.Tags -notcontains "PSHOST"){
+                $text = "["+(cutpad ($Job | Get-Job).Name -num 8)+"]["+(cutpad $out.tags[0] -num 8)+"] "+$IR.ToString();
+                $logEntry = [LogEntry]::new($text, [LogBookType]::FullDetail, $script:Logbook);
+                $logEntry.LogSource = ($Job | Get-Job).Name;
+                $script:Logbook.doLogEntry($logEntry);
+            }
         }
     }
     LogBook_TabOut;
+    $Job.Information.Clear();
 }
 
-function doLogJob([System.Management.Automation.Job]$Job){    
-    
-    $Output = $Job.Debug.ReadAll(); 
-    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Debug);  
-    $Job.Debug.Clear();
-    
-    $Output = $Job.Verbose.ReadAll(); 
-    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Fulldetail);  
-    $Job.Verbose.Clear();
-    
-    $Output = $Job.Warning.ReadAll();
-    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Important);  
-    $Job.Warning.Clear();
-    
-    $Output = $Job.Error.ReadAll();
-    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Error);  
-    $Job.Error.Clear();
-    
+function doLogJobFull([System.Management.Automation.Job]$Job){        
     $Output = $Job.Information.ReadAll();
-    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Detail);  
+    
+    LogBook_TabIn;
+    if($Output.Count -gt 0){
+        foreach($Out in $Output){
+            [System.Management.Automation.InformationRecord]$IR =  $out;
+            if($IR.Tags -notcontains "PSHOST"){
+                $logEntry = [LogEntry]::new($IR.ToString(), $out.tags[0], $script:Logbook);
+                $logEntry.LogSource = ($Job | Get-Job).Name;
+                $script:Logbook.doLogEntry($logEntry);
+            }
+        }
+    }
+    LogBook_TabOut;
     $Job.Information.Clear();
-    
-    $Output = $Job.Output.ReadAll();
-    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::log);  
-    $Job.Output.Clear();
-    
-    $Output = $Job.Progress.ReadAll();
-    #doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Success);  
-    $Job.Progress.Clear();
-
 }
 
 function loadLogBookConfigs($xmlConfigs){

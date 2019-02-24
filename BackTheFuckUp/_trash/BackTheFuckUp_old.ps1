@@ -116,3 +116,42 @@ if($backupperscript -eq [BackTheFuckUpActivationType]::BackUp){
 }
 #Write out the time ellapsed from the start of the build
 doLog -entry "Back Up proccess finished!" -Type ChapterEnd
+
+
+
+    <#
+    $Output = $Job.Debug.ReadAll(); 
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Debug);  
+    $Job.Debug.Clear();
+    
+    $Output = $Job.Verbose.ReadAll(); 
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Fulldetail);  
+    $Job.Verbose.Clear();
+    
+    $Output = $Job.Warning.ReadAll();
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Important);  
+    $Job.Warning.Clear();
+    
+    $Output = $Job.Error.ReadAll();
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Error);  
+    $Job.Error.Clear();    
+    
+    $Output = $Job.Output.ReadAll();
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::log);  
+    $Job.Output.Clear();
+    
+    $Output = $Job.Progress.ReadAll();
+    #doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output[0] -LogType ([LogBookType]::Success);  
+    $Job.Progress.Clear();#>
+
+    
+<#
+
+
+                $Prog = ($Job | Get-Job).ChildJobs[0].Progress.StatusDescription[-1]
+                If ($Prog -is [char]){
+                   $Prog = 0
+                }
+                $TotProg += $Prog
+                #doLog -entry ("Receive Jobs ("+($Job | Get-Job).Name+"): Prog = '$Prog': Output = '$Output'") -type fulldetail
+#>

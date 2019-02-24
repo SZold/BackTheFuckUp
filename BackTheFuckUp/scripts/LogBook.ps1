@@ -299,12 +299,7 @@ class LogBook{
                 $hash += "{0:X2}" -f $byte
             }
             
-            $charcount = ($hash.ToCharArray() | Where-Object {$_ -eq 'a'} | Measure-Object).Count; 
-            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'b'} | Measure-Object).Count; 
-            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'c'} | Measure-Object).Count; 
-            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'd'} | Measure-Object).Count; 
-            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'e'} | Measure-Object).Count; 
-            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'f'} | Measure-Object).Count; 
+            $charcount = ($hash.ToCharArray() | Where-Object {@('a', 'b', 'c', 'd', 'e', 'f') -contains $_} | Measure-Object).Count; 
             $backcolorNum = $charcount % ([enum]::GetValues([System.ConsoleColor]).Count ) 
             #[char]0x25A0 #[enum]::GetValues([System.ConsoleColor])[$backcolorNum].ToString().SubString(0,1)
             Write-Host " " -NoNewline -BackgroundColor ($backcolorNum )
@@ -315,36 +310,8 @@ class LogBook{
     
 
     WriteOutput([LogEntry]$log, [LogBookOutputConfig]$Output){  
-        if($log.type -eq [LogBookType]::Exception){
-            Write-Error ($log.ToString($Output.OutputFormat)) | Out-Host;
-        }
-        elseif($log.type -eq [LogBookType]::Error){
-            Write-Error ($log.ToString($Output.OutputFormat)) | Out-Host;
-        }
-        elseif($log.Type -eq [LogBookType]::Important){
-            Write-Warning ($log.ToString($Output.OutputFormat)) | Out-Host;
-        }
-        elseif($log.Type -eq [LogBookType]::Success){
-            Write-Information $log.ToString($Output.OutputFormat) | Out-Host;
-        }
-        elseif($log.Type -eq [LogBookType]::ChapterStart){
-            Write-Information $log.ToString($Output.OutputFormat) | Out-Host;
-        }
-        elseif($log.Type -eq [LogBookType]::ChapterEnd){
-            Write-Information $log.ToString($Output.OutputFormat)  | Out-Host;
-        }
-        elseif($log.Type -eq [LogBookType]::Debug){
-            Write-Debug $log.ToString($Output.OutputFormat) | Out-Host; 
-        }
-        elseif($log.Type -eq [LogBookType]::Detail){
-            Write-Verbose $log.ToString($Output.OutputFormat) | Out-Host;
-        }
-        elseif($log.Type -eq [LogBookType]::FullDetail){
-            Write-Verbose $log.ToString($Output.OutputFormat) | Out-Host;
-        }
-        else{
-            Write-Information $log.ToString($Output.OutputFormat) | Out-Host;
-        }
+        Write-Information $log.ToString($Output.OutputFormat) -Tags @($log.Type)  | Out-Host;
+        Write-Verbose $log.ToString()
     }
 
     WriteHost([LogEntry]$log, [LogBookOutputConfig]$Output){  

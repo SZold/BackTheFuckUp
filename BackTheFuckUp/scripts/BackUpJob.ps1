@@ -4,7 +4,7 @@
     [string]$sleep = 1
 )
 
-$Action = [System.Management.Automation.ActionPreference]::Continue;
+$Action = [System.Management.Automation.ActionPreference]::SilentlyContinue;
 $DebugPreference = $VerbosePreference = $WarningPreference = $ErrorActionPreference = $InformationPreference = $Action;
 
 if($JobId.Length -eq 0){$JobId = [guid]::NewGuid().Guid}
@@ -13,8 +13,9 @@ if($null -eq $ScriptRoot){$ScriptRoot =$PSScriptRoot}
 function configLogBook(){
     [LogBook]$script:LogBook = [LogBook]::new(); 
     $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level1, "", "\..\log\jobs\Error_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
-    #$script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level6, "", "\..\log\jobs\Log_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
+    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level6, "", "\..\log\jobs\Log_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
     $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::ScriptOutput, [LogBookLevel]::Level6, "{_ENTRY_}");
+    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level6, "");
     doLog -entry ("OutputConfigs: ("+$script:LogBook.config.OutputConfigs.Count+")") -type Debug;
 }
 
@@ -67,7 +68,7 @@ Try {
         doLog -entry ("'"+$_+"'") -Type Exception   
     }  
 } Finally {
-    doLog -entry ("Finishing Job: ("+$JobId+")") -type ChapterEnd;
+    doLog -entry ("Job Finished ("+$JobId+")") -type ChapterEnd;
     if ($script:LogBook -ne $null) {
         #$script:LogBook.LogBook_Result | foreach {Write-Output $_.ToString() } ;
     }

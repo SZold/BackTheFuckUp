@@ -37,10 +37,10 @@ Try {
     
     doLog -entry "Start Jobs" -type ChapterStart
     $Jobs = @()
-    $Total = 1
+    $Total = 2
     $LogString =""; 
     for($i = 1; $i -le $Total; $i++){
-        $Jobs += Start-Job -FilePath ($PSScriptRoot+"\scripts\BackUpJob.ps1") -ArgumentList ("test"+(10+$i)), $PSScriptRoot, ($i) -Name ("test"+(10+$i))
+        $Jobs += Start-Job -FilePath ($PSScriptRoot+"\scripts\BackUpJob.ps1") -ArgumentList ("test"+(10+$i)), $PSScriptRoot, ($i*2) -Name ("test"+(10+$i))
         doLog -entry ("Job '"+("test"+$i)+"' started") -type detail
         $LogStringTmp = "|"+(10+$Count)+":"+(Get-Job -Name ("test"+(10+$i))).State  
         $LogStringTmp = $LogStringTmp.subString(0, [System.Math]::Min(15, $LogStringTmp.Length)).PadRight(15, " ") ;   
@@ -84,20 +84,18 @@ Try {
         Start-Sleep -Milliseconds 100
         
     } Until (($Jobs | Where State -eq "Running").Count -eq 0)    
+        ForEach ($Job in $Jobs){
+        doLogJob(($Job | Get-Job).ChildJobs[0]);
+    }
 
     doLog -entry "Receive Jobs" -type Important
      
-    ForEach ($Job in $Jobs){
-        doLogJob(($Job | Get-Job).ChildJobs[0]);
-    }
 
     doLog -entry "Finished Jobs" -type ChapterEnd
 
 
     doLog -entry "Back Up proccess finished!" -Type ChapterEnd
 
-    
-   # $script:LogBook.LogBook_Result | foreach {$script:LogBook.WriteHost($_)}  | Out-Host;
 } Catch  {
     if ($script:LogBook -eq $null) { 
         write-error ("Unhandled exception occured: "+$_)  
@@ -108,14 +106,3 @@ Try {
 } Finally {
     CloseLogBook; 
 }
-
-<#
-
-
-                $Prog = ($Job | Get-Job).ChildJobs[0].Progress.StatusDescription[-1]
-                If ($Prog -is [char]){
-                   $Prog = 0
-                }
-                $TotProg += $Prog
-                #doLog -entry ("Receive Jobs ("+($Job | Get-Job).Name+"): Prog = '$Prog': Output = '$Output'") -type fulldetail
-#>
