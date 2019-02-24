@@ -7,6 +7,7 @@ function OpenLogBook{
     if ($script:LogBook -eq $null) { 
         $result = loadLogBookConfigs -xmlConfigs $script:configXML.LogBook;
         [LogBook]$script:LogBook = [LogBook]::new($result); 
+        $script:LogBook.LogBook_DefaultLogSource = ""; 
     }    
     $script:LogBook.doLog("-----------------------------------------------------", [LogBookType]::Log);
 }
@@ -38,6 +39,51 @@ function LogBook_TabOut([int]$num = 1){
     $script:LogBook.TabOut($num);
 }
 
+function doLogJobOutput($JobName, $Output, [LogBookType]$LogType){
+    LogBook_TabIn;
+    if($Output.Count -gt 0){
+        foreach($Out in $Output){
+            $text =  $out.ErrorDetail + $out.ToString();
+            $logEntry = [LogEntry]::new($text, $LogType, $script:Logbook);
+            $logEntry.LogSource = ($Job | Get-Job).Name;
+            $script:Logbook.doLogEntry($logEntry);
+        }
+    }
+    LogBook_TabOut;
+}
+
+function doLogJob([System.Management.Automation.Job]$Job){    
+    
+    $Output = $Job.Debug.ReadAll(); 
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Debug);  
+    $Job.Debug.Clear();
+    
+    $Output = $Job.Verbose.ReadAll(); 
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Fulldetail);  
+    $Job.Verbose.Clear();
+    
+    $Output = $Job.Warning.ReadAll();
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Important);  
+    $Job.Warning.Clear();
+    
+    $Output = $Job.Error.ReadAll();
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Error);  
+    $Job.Error.Clear();
+    
+    $Output = $Job.Information.ReadAll();
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Detail);  
+    $Job.Information.Clear();
+    
+    $Output = $Job.Output.ReadAll();
+    doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::log);  
+    $Job.Output.Clear();
+    
+    $Output = $Job.Progress.ReadAll();
+    #doLogJobOutput -JobName ($Job | Get-Job).Name -Output $Output -LogType ([LogBookType]::Success);  
+    $Job.Progress.Clear();
+
+}
+
 function loadLogBookConfigs($xmlConfigs){
     [OutputType([LogBookConfig])]
 
@@ -50,8 +96,9 @@ function loadLogBookConfigs($xmlConfigs){
         [LogBookOutputConfig]$outputConfig =  [LogBookOutputConfig]::new();
         $outputConfig.Level = $LogOutput.level;
         $outputConfig.Output = $LogOutput.Type;
-        $outputConfig.FileName = $LogOutput.InnerText;
+        $outputConfig.FileName = $LogOutput.FileName;
         $outputConfig.FileNameDateFormat = $LogOutput.FileNameDateFormat;
+        $outputConfig.OutputFormat = $LogOutput.InnerText;
 
         $result.OutputConfigs += $outputConfig;
     }
@@ -60,6 +107,7 @@ function loadLogBookConfigs($xmlConfigs){
 
 function loadConfigs([string]$filename){ 
     [LogBook]$LogBook = [LogBook]::new(); 
+    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level6);
     $LogBook.doLog("loadConfigs("+$filename+")", [LogBookType]::Detail);
     $configFilePath = $filename
     If (Test-Path $configFilePath){   

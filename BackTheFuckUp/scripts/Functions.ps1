@@ -30,10 +30,10 @@ function CreateRegistryEntriesAndShortcuts(){
         doLog -entry ("ProceedAction: ("+$ProceedAction+")") -Type Detail 
 
         AddAllRegistryEntries -protocolName:$protocolName -ProceedAction:($ProceedAction);
-        CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_BackUp.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:BackUp")) 
-        CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_DryRun.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:DryRun")) 
+        CreateShortcut -shortcutFilePath:($PSScriptRoot+"\..\bin\Shortcut_BackUp.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:BackUp")) 
+        CreateShortcut -shortcutFilePath:($PSScriptRoot+"\..\bin\Shortcut_DryRun.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:DryRun")) 
         $command = "Get-ChildItem '$PSScriptRoot\log\*.log' | sort LastWriteTime | select -last 1 | Get-Content -Wait "
-        CreateShortcut -shortcutFilePath:($PSScriptRoot+"\Shortcut_ViewLastLog.lnk") -TargetPath:("powershell") -Parameters:(" -nologo -command `"&{$command}`"" ) 
+        CreateShortcut -shortcutFilePath:($PSScriptRoot+"\..\bin\Shortcut_ViewLastLog.lnk") -TargetPath:($script:configXML.Configs.PowershellExecutable) -Parameters:(" -nologo -command `"&{$command}`"" ) 
     } catch {        
         doLog -entry ("Error during CreateRegistryEntriesAndShortcuts: '"+$_+"'") -Type Exception        
     }  

@@ -6,7 +6,7 @@ Set selfFile = objFSO.GetFile(Wscript.ScriptFullName)
 strFolder = objFSO.GetParentFolderName(selfFile) 
 
 'enter the path for your PowerShell Script
- strPath= strFolder & "\BackTheFuckUp.ps1"
+ strPath= strFolder & "\..\BackTheFuckUp.ps1"
 
 'verify file exists
  If objFSO.FileExists(strPath) Then

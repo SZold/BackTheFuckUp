@@ -26,6 +26,8 @@ Enum LogBookOutput
     File    = 1
     Console = 2
     XML = 4
+    Memory = 8
+    ScriptOutput = 16
 }
 
 function LogBook_GetTabs($tab){
@@ -38,18 +40,47 @@ function LogBook_GetTabs($tab){
 
 class LogBookOutputConfig{
     [LogBookOutput]$Output = [LogBookOutput]::new();
-    $FileNameDateFormat = "yyyy-MM-dd-HH"
     [LogBookLevel]$Level = [LogBookLevel]::Level0
-    $FileName = "Log_{_FILENAMEDATEFORMAT_}.log"
+    [string]$FileName = "Log_{_FILENAMEDATEFORMAT_}.log"
+    [string]$FileNameDateFormat = "yyyy-MM-dd"
+    [string]$OutputFormat = "";
+    
+    LogBookOutputConfig(){
+        $this.LogBookOutputConfigInit([LogBookOutput]::Memory, [LogBookLevel]::Level1, "", "yyyy-MM-dd HH:mm:ss.fff", "mm:ss.fff" );}
+    LogBookOutputConfig([LogBookOutput]$Output, [LogBookLevel]$Level){
+        $this.LogBookOutputConfigInit($Output, $level, "", "", "");}
+    LogBookOutputConfig([LogBookOutput]$Output, [LogBookLevel]$Level, $OutputFormat){
+        $this.LogBookOutputConfigInit($Output, $level, $OutputFormat, "", "");}
+    LogBookOutputConfig([LogBookOutput]$Output, [LogBookLevel]$Level, $OutputFormat, $FileName, $FileNameDateFormat){
+        $this.LogBookOutputConfigInit($Output, $level, $OutputFormat, $FileName, $FileNameDateFormat);}
+    hidden LogBookOutputConfigInit([LogBookOutput]$Output, [LogBookLevel]$Level, $OutputFormat, $FileName, $FileNameDateFormat) { 
+        $this.Output = $Output;
+        $this.Level = $Level;
+        $this.FileName = $FileName;
+        $this.FileNameDateFormat = $FileNameDateFormat;
+        $this.OutputFormat = $OutputFormat;
+    }
 }
 class LogBookConfig{
-    $DateTimeFormat  = "yyyy-MM-dd HH:mm:ss.fff"
-    $DeltaTimeFormat = "mm:ss.fff"
-
-    [LogBookOutputConfig[]]$OutputConfigs = @()
+    $DateTimeFormat;
+    $DeltaTimeFormat;
+    [LogBookOutputConfig[]]$OutputConfigs;
+    
+    LogBookConfig(){
+        $this.LogBookConfigInit("yyyy-MM-dd HH:mm:ss.fff", "mm:ss.fff", @());}
+    LogBookConfig([LogBookOutputConfig[]]$OutputConfigs){
+        $this.LogBookConfigInit("yyyy-MM-dd HH:mm:ss.fff", "mm:ss.fff", $OutputConfigs);}
+    LogBookConfig($DateTimeFormat, $DeltaTimeFormat, [LogBookOutputConfig[]]$OutputConfigs){
+        $this.LogBookConfigInit($DateTimeFormat, $DeltaTimeFormat, $OutputConfigs);}
+    hidden LogBookConfigInit($DateTimeFormat, $DeltaTimeFormat, [LogBookOutputConfig[]]$OutputConfigs) { 
+        $this.DateTimeFormat = $DateTimeFormat;
+        $this.DeltaTimeFormat = $DeltaTimeFormat;
+        $this.OutputConfigs = $OutputConfigs;
+    }
 }
 
 class LogEntry{
+    $LogSource = "";
     $now = 0;
     $deltaStart = 0;
     $deltaLast = 0;
@@ -57,8 +88,13 @@ class LogEntry{
     $tab = "";
     $type = [LogBookType]::Log;
     [LogBook]$LogBook = $null;
-
+    
     LogEntry($entry, $type, [LogBook]$LogBook){
+        $this.LogEntryInit($entry, $type, $LogBook, "");}
+    LogEntry($entry, $type, [LogBook]$LogBook, [string]$LogSource){
+        $this.LogEntryInit($entry, $type, $LogBook, $LogSource);}
+
+    hidden LogEntryInit($entry, $type, [LogBook]$LogBook, [string]$LogSource) { 
         $this.LogBook = $LogBook;
         $this.now = [System.DateTime]::Now;
         $this.deltaStart = $this.now.Add(-$this.LogBook.LogBook_StartTime);
@@ -68,8 +104,13 @@ class LogEntry{
             $this.deltaLast = $this.now.Add(-$this.now)
         }
         $this.entry = $entry;
-        $this.type = $type;
+        $this.type = $type;        
         $this.tab = $this.LogBook.LogBook_Tab;
+        if($LogSource.Length -gt 0){
+            $this.LogSource = $LogSource
+        }else{
+            $this.LogSource = $LogBook.LogBook_DefaultLogSource;
+        }
     }
     
     [string]getTabs(){
@@ -77,19 +118,33 @@ class LogEntry{
     }
     
     [string]ToString(){
-        $log = ""
-        $log += "["+($this.now.ToString($this.LogBook.config.DateTimeFormat))+"]";
-        $log += "["+($this.deltaStart.ToString($this.LogBook.config.DeltaTimeFormat))+"]";
-        $log += "["+($this.deltaLast.ToString($this.LogBook.config.DeltaTimeFormat))+"]";
-        $log += "["+($this.type.ToString().subString(0, [System.Math]::Min(8, $this.type.ToString().Length)).PadRight(8, " ") )+"]";
+        return $this.ToString("");
+    }
+    
+    [string]ToString($OutputFormat){
+        if($OutputFormat.length -gt 0){
+            [string]$log = $OutputFormat;
+        }else{
+            [string]$log = "[{_LOGSOURCE8_}][{_CURRENT_DATETIME_}][{_TIME_DELTA_START_}][{_TIME_DELTA_PREV_}][{_TYPE8_}]{_TABS_}{_ENTRY_}";
+        }
 
-        $log += " "+$this.getTabs()+$this.entry;
+        $log = $log.replace('{_LOGSOURCE8_}',       $this.LogSource.ToString().subString(0, [System.Math]::Min(8, $this.LogSource.ToString().Length)).PadRight(8, " ") );
+        $log = $log.replace('{_LOGSOURCE_}',        $this.LogSource.ToString());
+        $log = $log.replace('{_CURRENT_DATETIME_}', $this.now.ToString($this.LogBook.config.DateTimeFormat));
+        $log = $log.replace('{_TIME_DELTA_START_}', $this.deltaStart.ToString($this.LogBook.config.DeltaTimeFormat));
+        $log = $log.replace('{_TIME_DELTA_PREV_}',  $this.deltaLast.ToString($this.LogBook.config.DeltaTimeFormat));
+        $log = $log.replace('{_TYPE8_}',            $this.type.ToString().subString(0, [System.Math]::Min(8, $this.type.ToString().Length)).PadRight(8, " ") );
+        $log = $log.replace('{_TYPE_}',             $this.type.ToString());
+        $log = $log.replace('{_TABS_}',             $this.getTabs());
+        $log = $log.replace('{_ENTRY_}',            $this.entry);
+        
         return $log;
     }
     [string]ToXML(){
         $log = ""
         $log += $this.getTabs()
         $log += "<Log ";
+        $log += "Source=`""+($this.LogSource.ToString().subString(0, [System.Math]::Min(8, $this.LogSource.ToString().Length)).PadRight(8, " ") )+"`" "
         $log += "Type=`""+($this.type.ToString())+"`" ";
         $log += "LogTime=`""+($this.now.ToString($this.LogBook.config.DateTimeFormat))+"`" ";
         $log += "deltaStart=`""+($this.deltaStart.ToString($this.LogBook.config.DeltaTimeFormat))+"`" ";
@@ -104,24 +159,22 @@ class LogEntry{
 class LogBook{
     [LogBookConfig]$config = [LogBookConfig]::new();
     $LogBook_StartTime = 0
+    $LogBook_DefaultLogSource = "";
     $LogBook_LastLogTime = 0
     $LogBook_Tab = 0
+    [LogEntry[]]$LogBook_Result = @();
     [LogBookLevel]$LogBook_Level = [LogBookLevel]::new();
     [LogBookOutput]$LogBook_Output = [LogBookOutput]::File -bor [LogBookOutput]::Console -bor [LogBookOutput]::XML;
     [LogBookType[]]$LogBookLevels = [LogBookType[]]::new([Enum]::GetValues([LogBookLevel]).Count);
 
     
-    LogBook(){$this.Init($null);}
-    LogBook($config){$this.Init($config);}
-    hidden Init($config) { 
+    LogBook(){$this.LogBookInit($null);}
+    LogBook($config){$this.LogBookInit($config);}
+    hidden LogBookInit($config) { 
         if($null -eq $config){
-            $outputConfig =  [LogBookOutputConfig]::new();
-            $outputConfig.Level = [LogBookLevel]::Level1;
-            $outputConfig.Output = [LogBookOutput]::Console;
-
             $this.config.DateTimeFormat  = "MM-dd-yyyy HH:mm:ss.fff"   
             $this.config.DeltaTimeFormat = "mm:ss.fff"   
-            $this.config.OutputConfigs = @($outputConfig);
+            $this.config.OutputConfigs = @([LogBookOutputConfig]::new([LogBookOutput]::Memory, [LogBookLevel]::Level6));
         }else{
             $this.config = $config;
         }
@@ -140,17 +193,30 @@ class LogBook{
         $this.LogBookLevels[[LogBookLevel]::Level5 -as [int]] = [LogBookType]::Debug -bor [LogBookType]::Detail;
         $this.LogBookLevels[[LogBookLevel]::Level6 -as [int]] = [LogBookType]::FullDetail;
     }
-
+    
 
     doLog([string]$entry, [LogBookType]$Type = [LogBookType]::Log){
         if($Type -eq [LogBookType]::ChapterEnd){ $this.TabOut(); }
 
-        [LogEntry]$log = [LogEntry]::new($entry, $Type, $this);        
+        [LogEntry]$log = [LogEntry]::new($entry, $Type, $this);       
+        
+        $this.doLogEntry($log)        
+    
+        if($Type -eq [LogBookType]::ChapterStart){ $this.TabIn(); }
+
+        $this.LogBook_LastLogTime = $log.now;
+
+        if($Type -eq [LogBookType]::Exception){            
+            exit 1
+        }
+    }
+
+    doLogEntry([LogEntry]$log){    
         foreach($Output in $this.config.OutputConfigs ){ 
-            if($this.isAllowed($Output.Level, $Type)){
+            if($this.isAllowed($Output.Level, $log.type)){
                 if($Output.Output -eq [LogBookOutput]::Console)
                 {
-                    $this.WriteHost($log);
+                    $this.WriteHost($log, $Output);
                 }
                 if($Output.Output -eq [LogBookOutput]::File)
                 {
@@ -159,17 +225,16 @@ class LogBook{
                 if($Output.Output -eq [LogBookOutput]::XML)
                 {
                     $this.WriteXML($log, $Output);
-                }                
+                }    
+                if($Output.Output -eq [LogBookOutput]::Memory)
+                {
+                    $this.LogBook_Result += $log;
+                }    
+                if($Output.Output -eq [LogBookOutput]::ScriptOutput)
+                {
+                    $this.WriteOutput($log, $Output);
+                }                  
             }    
-        }
-        
-    
-        if($Type -eq [LogBookType]::ChapterStart){ $this.TabIn(); }
-
-        $this.LogBook_LastLogTime = $log.now;
-
-        if($Type -eq [LogBookType]::Exception){            
-            exit 1
         }
     }
     
@@ -203,58 +268,116 @@ class LogBook{
     }
     
     WriteFile([LogEntry]$log, [LogBookOutputConfig]$Output){
-        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATEFORMAT_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
+        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATETIME_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
         if (!(Test-Path $filepath)){
            New-Item $filepath -type "file" -Force | Out-Null
         }
-        $log.ToString() | Out-File $filepath -Force -Append        
+        $log.ToString($Output.OutputFormat) | Out-File $filepath -Force -Append        
     }
     
     WriteXML([string]$line, [LogBookOutputConfig]$Output){
-        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATEFORMAT_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
+        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATETIME_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
         if (!(Test-Path $filepath)){
            New-Item $filepath -type "file" -Force | Out-Null
         }
-        $line.ToString() | Out-File $filepath -Force -Append         
+        $line.ToString($Output.OutputFormat) | Out-File $filepath -Force -Append         
     }
     WriteXML([LogEntry]$log, [LogBookOutputConfig]$Output){
-        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATEFORMAT_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
+        $filepath = $PSScriptRoot+$Output.FileName.replace("{_FILENAMEDATETIME_}", $this.LogBook_StartTime.ToString($Output.FileNameDateFormat))
         if (!(Test-Path $filepath)){
            New-Item $filepath -type "file" -Force | Out-Null
         }
-        $log.ToString() | Out-File $filepath -Force -Append        
+        $log.ToString($Output.OutputFormat) | Out-File $filepath -Force -Append        
     }
 
-    WriteHost([LogEntry]$log){    
+    WriteHost_CharColor([string]$string){
+        if($string.length -gt 0){            
+            $hashByteArray = (new-object System.Security.Cryptography.MD5CryptoServiceProvider).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($string))
+            $hash = "";
+            foreach($byte in $hashByteArray)
+            {
+                $hash += "{0:X2}" -f $byte
+            }
+            
+            $charcount = ($hash.ToCharArray() | Where-Object {$_ -eq 'a'} | Measure-Object).Count; 
+            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'b'} | Measure-Object).Count; 
+            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'c'} | Measure-Object).Count; 
+            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'd'} | Measure-Object).Count; 
+            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'e'} | Measure-Object).Count; 
+            $charcount += ($hash.ToCharArray() | Where-Object {$_ -eq 'f'} | Measure-Object).Count; 
+            $backcolorNum = $charcount % ([enum]::GetValues([System.ConsoleColor]).Count ) 
+            #[char]0x25A0 #[enum]::GetValues([System.ConsoleColor])[$backcolorNum].ToString().SubString(0,1)
+            Write-Host " " -NoNewline -BackgroundColor ($backcolorNum )
+        }else{
+            Write-Host " " -NoNewline
+        }
+    }
+    
+
+    WriteOutput([LogEntry]$log, [LogBookOutputConfig]$Output){  
         if($log.type -eq [LogBookType]::Exception){
-            Write-Host ($log.ToString()) -foregroundcolor "red"  -backgroundcolor "black" 
+            Write-Error ($log.ToString($Output.OutputFormat)) | Out-Host;
         }
         elseif($log.type -eq [LogBookType]::Error){
-            Write-Host ($log.ToString()) -foregroundcolor "red"  -backgroundcolor "black"
+            Write-Error ($log.ToString($Output.OutputFormat)) | Out-Host;
         }
         elseif($log.Type -eq [LogBookType]::Important){
-            Write-Host ($log.ToString()) -foregroundcolor "Cyan"
+            Write-Warning ($log.ToString($Output.OutputFormat)) | Out-Host;
         }
         elseif($log.Type -eq [LogBookType]::Success){
-            Write-Host $log.ToString() -foregroundcolor "green" 
+            Write-Information $log.ToString($Output.OutputFormat) | Out-Host;
         }
         elseif($log.Type -eq [LogBookType]::ChapterStart){
-            Write-Host $log.ToString() -foregroundcolor "blue"  -backgroundcolor "yellow" 
+            Write-Information $log.ToString($Output.OutputFormat) | Out-Host;
         }
         elseif($log.Type -eq [LogBookType]::ChapterEnd){
-            Write-Host $log.ToString() -foregroundcolor "blue"  -backgroundcolor "Green"
+            Write-Information $log.ToString($Output.OutputFormat)  | Out-Host;
         }
         elseif($log.Type -eq [LogBookType]::Debug){
-            Write-Host $log.ToString() -foregroundcolor "white" -backgroundcolor "magenta"
+            Write-Debug $log.ToString($Output.OutputFormat) | Out-Host; 
         }
         elseif($log.Type -eq [LogBookType]::Detail){
-            Write-Host $log.ToString() -foregroundcolor "Gray" 
+            Write-Verbose $log.ToString($Output.OutputFormat) | Out-Host;
         }
         elseif($log.Type -eq [LogBookType]::FullDetail){
-            Write-Host $log.ToString() -foregroundcolor "DarkGray" 
+            Write-Verbose $log.ToString($Output.OutputFormat) | Out-Host;
         }
         else{
-            Write-Host $log.ToString() -foregroundcolor "yellow" 
+            Write-Information $log.ToString($Output.OutputFormat) | Out-Host;
+        }
+    }
+
+    WriteHost([LogEntry]$log, [LogBookOutputConfig]$Output){  
+        $this.WriteHost_CharColor($log.LogSource)  
+        if($log.type -eq [LogBookType]::Exception){
+            Write-Host ($log.ToString($Output.OutputFormat)) -foregroundcolor "red"  -backgroundcolor "black" 
+        }
+        elseif($log.type -eq [LogBookType]::Error){
+            Write-Host ($log.ToString($Output.OutputFormat)) -foregroundcolor "red"  -backgroundcolor "black"
+        }
+        elseif($log.Type -eq [LogBookType]::Important){
+            Write-Host ($log.ToString($Output.OutputFormat)) -foregroundcolor "Cyan"
+        }
+        elseif($log.Type -eq [LogBookType]::Success){
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "green" 
+        }
+        elseif($log.Type -eq [LogBookType]::ChapterStart){
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "blue"  -backgroundcolor "yellow" 
+        }
+        elseif($log.Type -eq [LogBookType]::ChapterEnd){
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "blue"  -backgroundcolor "Green"
+        }
+        elseif($log.Type -eq [LogBookType]::Debug){
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "white" -backgroundcolor "magenta"
+        }
+        elseif($log.Type -eq [LogBookType]::Detail){
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "Gray" 
+        }
+        elseif($log.Type -eq [LogBookType]::FullDetail){
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "DarkGray" 
+        }
+        else{
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "yellow" 
         }
     }
 

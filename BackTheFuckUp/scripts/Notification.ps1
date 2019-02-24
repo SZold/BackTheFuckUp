@@ -1,5 +1,8 @@
 ﻿class ProgressBar{
 <#
+[Y] Yes [A] Yes to All [H] Halt Command [S] Suspend [?] Help (default is "Y"):
+
+
 $ProgressBar = New-BTProgressBar -Status 'Getting User Objects' -Value 0.26 
 $ProgressBar2 = New-BTProgressBar -Status 'Getting User Objects2' -Value 0.80
 
