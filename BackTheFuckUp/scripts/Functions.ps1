@@ -54,3 +54,73 @@ function AddAllRegistryEntries($protocolName, $ProceedAction){
     }
     LogBook_TabOut;
 }
+
+function writeJobProgress($LogString, $PercentComplete){
+    Write-Progress -Activity  "Check Jobs" -Status $LogString -PercentComplete $PercentComplete
+}
+
+function startJobs(){
+    doLog -entry ("startJobs()") -Type Detail
+    $Jobs = @()
+    $Total = 2
+    $LogString =""; 
+    for($i = 1; $i -le $Total; $i++){
+        $Jobs += Start-Job -FilePath ($PSScriptRoot+"\BackUpJob.ps1") -ArgumentList ("test"+(10+$i)), $PSScriptRoot, ($i*2) -Name ("test"+(10+$i))
+        doLog -entry ("Job '"+("test"+$i)+"' started")
+        $LogStringTmp = "|"+(10+$Count)+":started"
+        $LogStringTmp = $LogStringTmp.subString(0, [System.Math]::Min(15, $LogStringTmp.Length)).PadRight(15, " ") ;   
+        $LogString += $LogStringTmp
+    }
+    
+    writeJobProgress -LogString $LogString -PercentComplete  0
+    doLog -entry ("startJobs |"+$Count+" | "+(cutpad -string $percent -num 2)+"% | "+$LogString+" | ") -type Loop
+
+    return $Jobs
+}
+
+function waitJobs($Jobs){ 
+    doLog -entry ("waitJobs("+$Jobs.Count+")") -Type Detail
+    $TotProg = 0
+    $Comp = 0
+
+    Do {    
+        $TotProg++
+        $Count = 0
+        $LogString =""; 
+        
+        ForEach ($Job in $Jobs){
+            $Count++;
+            Try {
+                $LogStringTmp = "|"+(10+$Count)+":"+($Job | Get-Job).State  
+                $LogStringTmp = $LogStringTmp.subString(0, [System.Math]::Min(15, $LogStringTmp.Length)).PadRight(15, " ") ;   
+                $LogString += $LogStringTmp
+                doLog -entry ("doLogJob |"+(10+$Count)+"| "+($Job | Get-Job).ChildJobs.Count+" | "+($Job | Get-Job).Information.ReadAll().Count+" | "+$LogStringTmp+" | ") -type Loop
+                doLogJob(($Job | Get-Job).ChildJobs[0]);
+            }Catch {
+                doLog -entry ("Failed to get Job state for: "+($Job | Get-Job).Name) -type FullDetail
+                Start-Sleep -Milliseconds 1
+                Break
+            }
+        }
+        if(0 -eq ($TotProg % 4)){
+            $TotProg = 0
+        }
+        if($TotProg -eq 0){$LogString = ("| ")+$LogString;  }
+        if($TotProg -eq 1){$LogString = ("/ ")+$LogString;  }
+        if($TotProg -eq 2){$LogString = ("- ")+$LogString;  }
+        if($TotProg -eq 3){$LogString = ("\ ")+$LogString;  }
+        # | / - \ 
+        #doLog -entry $LogString -type debug         
+        $percent =  ((($Jobs | Where State -eq "Completed").Count / $Jobs.Count)*100)
+        writeJobProgress -LogString $LogString -PercentComplete $percent
+        doLog -entry ("waitJobs |"+$Count+" | "+(cutpad -string $percent -num 2)+"% | "+$LogString+" | ") -type Loop
+        # Write-Progress -Id 1 -Activity "Watching Background Jobs" -Status "Waiting for background jobs to complete: $TotProg of $Total"  -PercentComplete (($TotProg / $Total) * 100)
+
+
+        Start-Sleep -Milliseconds 100
+        
+    } Until (($Jobs | Where State -eq "Running").Count -eq 0)    
+        ForEach ($Job in $Jobs){
+        doLogJob(($Job | Get-Job).ChildJobs[0]);
+    }
+}

@@ -10,6 +10,7 @@ Enum LogBookType
      Debug        = 128
      Detail       = 256
      FullDetail   = 512
+     Loop         = 1024
 }
 Enum LogBookLevel
 {  
@@ -20,6 +21,7 @@ Enum LogBookLevel
      Level4 = 4
      Level5 = 5
      Level6 = 6
+     Level7 = 7
 }
 Enum LogBookOutput
 {  
@@ -192,6 +194,7 @@ class LogBook{
         $this.LogBookLevels[[LogBookLevel]::Level4 -as [int]] = [LogBookType]::Log;
         $this.LogBookLevels[[LogBookLevel]::Level5 -as [int]] = [LogBookType]::Debug -bor [LogBookType]::Detail;
         $this.LogBookLevels[[LogBookLevel]::Level6 -as [int]] = [LogBookType]::FullDetail;
+        $this.LogBookLevels[[LogBookLevel]::Level7 -as [int]] = [LogBookType]::Loop;
     }
     
 
@@ -310,7 +313,7 @@ class LogBook{
     
 
     WriteOutput([LogEntry]$log, [LogBookOutputConfig]$Output){  
-        Write-Information $log.ToString($Output.OutputFormat) -Tags @($log.Type)  | Out-Host;
+        Write-Information $log.ToString($Output.OutputFormat) -Tags @($log.Type) ;
         Write-Verbose $log.ToString()
     }
 
@@ -342,6 +345,9 @@ class LogBook{
         }
         elseif($log.Type -eq [LogBookType]::FullDetail){
             Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "DarkGray" 
+        }
+        elseif($log.Type -eq [LogBookType]::Loop){
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "DarkBlue" 
         }
         else{
             Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "yellow" 

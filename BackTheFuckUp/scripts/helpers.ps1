@@ -47,6 +47,7 @@ function doLogJob([System.Management.Automation.Job]$Job){
     $Output = $Job.Information.ReadAll();
     
     LogBook_TabIn;
+    doLog -entry ("doLogJob |"+($Output.Count)+" | "+$Job.HasMoreData+"  | "+($Job | Get-Job).Name+" | ") -type debug
     if($Output.Count -gt 0){
         foreach($Out in $Output){
             [System.Management.Automation.InformationRecord]$IR =  $out;
@@ -82,43 +83,62 @@ function doLogJobFull([System.Management.Automation.Job]$Job){
 
 function loadLogBookConfigs($xmlConfigs){
     [OutputType([LogBookConfig])]
+    [LogBook]$LogBook = [LogBook]::new(); 
+    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level7);
+    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level1, "", "/../log/preConfigLogError.log", "");
+    Try {
 
-    [LogBookConfig]$result = [LogBookConfig]::new();
+        [LogBookConfig]$result = [LogBookConfig]::new();
 
-    $result.DateTimeFormat  = $xmlConfigs.DateTimeFormat
-    $result.DeltaTimeFormat = $xmlConfigs.DeltaTimeFormat   
-    $result.OutputConfigs = @();      
-    foreach( $LogOutput in $xmlConfigs.LogOutput ){   
-        [LogBookOutputConfig]$outputConfig =  [LogBookOutputConfig]::new();
-        $outputConfig.Level = $LogOutput.level;
-        $outputConfig.Output = $LogOutput.Type;
-        $outputConfig.FileName = $LogOutput.FileName;
-        $outputConfig.FileNameDateFormat = $LogOutput.FileNameDateFormat;
-        $outputConfig.OutputFormat = $LogOutput.InnerText;
+        $result.DateTimeFormat  = $xmlConfigs.DateTimeFormat
+        $result.DeltaTimeFormat = $xmlConfigs.DeltaTimeFormat   
+        $LogBook.doLog("Date formats loaded: DateTimeFormat: "+$result.DateTimeFormat+"; DeltaTimeFormat: "+$result.DeltaTimeFormat, [LogBookType]::FullDetail);
+        $result.OutputConfigs = @();      
+        foreach( $LogOutput in $xmlConfigs.LogOutput ){   
+            [LogBookOutputConfig]$outputConfig =  [LogBookOutputConfig]::new();
+            $outputConfig.Level = $LogOutput.level;
+            $outputConfig.Output = $LogOutput.Type;
+            $outputConfig.FileName = $LogOutput.FileName;
+            $outputConfig.FileNameDateFormat = $LogOutput.FileNameDateFormat;
+            $outputConfig.OutputFormat = $LogOutput.InnerText;
 
-        $result.OutputConfigs += $outputConfig;
-    }
+            $LogBook.doLog("logbook output config loaded: Level="+$outputConfig.Level+"; Output="+$outputConfig.Output+"; FileName="+$outputConfig.FileName+"; FileNameDateFormat="+
+                            $outputConfig.FileNameDateFormat+"; OutputFormat="+$outputConfig.OutputFormat, [LogBookType]::FullDetail);
+
+            $result.OutputConfigs += $outputConfig;
+        }
+        $LogBook.doLog("Logbook config loaded! ("+$result.OutputConfigs.Count+")", [LogBookType]::Success);
+    } Catch  {      
+        $LogBook.doLog("Unhandled exception occured: ", [LogBookType]::Error);
+        $LogBook.doLog("'"+$_+"'", [LogBookType]::Exception);
+    } 
     return $result;
 }
 
 function loadConfigs([string]$filename){ 
     [LogBook]$LogBook = [LogBook]::new(); 
-    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level6);
+    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level7);
+    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level1, "", "/../log/preConfigLogError.log", "");
     $LogBook.doLog("loadConfigs("+$filename+")", [LogBookType]::Detail);
-    $configFilePath = $filename
-    If (Test-Path $configFilePath){   
-        $configFile = gi $configFilePath 
-        try { 
-            [xml]$configXML = get-content -Path $configFile -Encoding UTF8;
-            $script:configXML = $configXML.BackUpConfig;
-            $LogBook.doLog("Config loaded!", [LogBookType]::Success);
-        } catch {        
-            $LogBook.doLog("Config load error: '"+$_+"'", [LogBookType]::Exception);     
-        }
+    Try {
+        $configFilePath = $filename
+        If (Test-Path $configFilePath){   
+            $configFile = gi $configFilePath 
+            try { 
+                [xml]$configXML = get-content -Path $configFile -Encoding UTF8;
+                $script:configXML = $configXML.BackUpConfig;
+                $LogBook.doLog("Config loaded!", [LogBookType]::Success);
+            } catch {        
+                $LogBook.doLog("Config load error: '"+$_+"'", [LogBookType]::Exception);     
+            }
         
-    }else{ 
-       $LogBook.doLog("Config file not found error: '"+$configFilePath+"'", [LogBookType]::Exception); 
-    }
+        }else{ 
+           $LogBook.doLog("Config file not found error: '"+$configFilePath+"'", [LogBookType]::Exception); 
+        }
+    } Catch  {      
+        $LogBook.doLog("Unhandled exception occured: ", [LogBookType]::Error);
+        $LogBook.doLog("'"+$_+"'", [LogBookType]::Exception);
+    } 
 }
 
 function checkAdminRights([bool]$fail = $true){
