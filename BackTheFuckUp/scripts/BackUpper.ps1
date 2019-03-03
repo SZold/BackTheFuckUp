@@ -4,10 +4,10 @@
 
 Enum BackUpperCompareType
 {  
- Exist
- Size
- ModificationDate 
- ExtensionAllowed
+ Exist = 1
+ Size = 2
+ ModificationDate = 4
+ ExtensionAllowed = 8
 }
 
 Enum BackUpperActionType
@@ -102,23 +102,15 @@ class BackUpper
     }
 
     [BackUpperActionType]compareFiles($sourceFileInfo, $targetFileInfo){   
-        doLog -entry ("sourceFileInfo: ("+($sourceFileInfo)+")") -Type FullDetail
-        doLog -entry ("sourceFileInfo.Length: ("+($sourceFileInfo.Length)+")") -Type FullDetail
-        doLog -entry ("sourceFileInfo.LastWriteTime: ("+($sourceFileInfo.LastWriteTime)+")") -Type FullDetail
-        doLog -entry ("targetFileInfo: ("+($targetFileInfo)+")") -Type FullDetail
-        doLog -entry ("targetFileInfo.Length: ("+($targetFileInfo.Length)+")") -Type FullDetail
-        doLog -entry ("targetFileInfo.LastWriteTime: ("+($targetFileInfo.LastWriteTime)+")") -Type FullDetail
+        doLog -entry ("sourceFileInfo: ("+($sourceFileInfo)+")") -Type loop
+        doLog -entry ("sourceFileInfo.Length: ("+($sourceFileInfo.Length)+")") -Type loop
+        doLog -entry ("sourceFileInfo.LastWriteTime: ("+($sourceFileInfo.LastWriteTime)+")") -Type loop
+        doLog -entry ("targetFileInfo: ("+($targetFileInfo)+")") -Type loop
+        doLog -entry ("targetFileInfo.Length: ("+($targetFileInfo.Length)+")") -Type loop
+        doLog -entry ("targetFileInfo.LastWriteTime: ("+($targetFileInfo.LastWriteTime)+")") -Type loop
     
         $relativeFilePath = if ($sourceFileInfo -eq $null) { $this.getRelativePath($targetFileInfo.Fullname) } else {$this.getRelativePath($sourceFileInfo.Fullname) }
 
-        if($this.compareType -band [BackUpperCompareType]::ExtensionAllowed){
-            if(($this.BlackListedExtensions -contains $sourceFileInfo.Extension) -or
-               ($this.WhiteListedExtensions -notcontains $sourceFileInfo.Extension))
-            {
-                doLog -entry ("Action: File extension not allowed | File: '"+($relativeFilePath)+"'") -Type Detail
-                return [BackUpperActionType]::DeleteFromTarget;
-            }
-        }
         if(($sourceFileInfo.Exists -ne $true) -And ($targetFileInfo.Exists -eq $true)){
              doLog -entry ("Action: File deleted from source | File: '"+($relativeFilePath)+"'") -Type Detail
              return [BackUpperActionType]::DeleteFromTarget;
@@ -188,13 +180,13 @@ class BackUpper
             $sourceFileInfo = Get-ItemProperty -LiteralPath ($this.SourcePath+$relativeFilePath)
             $targetFileInfo = Get-ItemProperty -LiteralPath ($this.TargetPath+$relativeFilePath)  
              
-            doLog -entry ("File: ("+($relativeFilePath)+")") -Type FullDetail
+            doLog -entry ("File: ("+($relativeFilePath)+")") -Type loop
             LogBook_TabIn;
-            doLog -entry ("this.SourcePath+relativeFilePath: ("+($this.SourcePath+$relativeFilePath)+")") -Type FullDetail
-            doLog -entry ("this.TargetPath+relativeFilePath: ("+($this.TargetPath+$relativeFilePath)+")") -Type FullDetail
+            doLog -entry ("this.SourcePath+relativeFilePath: ("+($this.SourcePath+$relativeFilePath)+")") -Type loop
+            doLog -entry ("this.TargetPath+relativeFilePath: ("+($this.TargetPath+$relativeFilePath)+")") -Type loop
             #doLog -entry ("$percent% Complete | File: '"+$relativeFilePath+"'") -Type ([LogBookType]::Detail)
             $actionType = $this.compareFiles($sourceFileInfo, $targetFileInfo);
-            doLog -entry ("actionType: ("+($actionType)+")") -Type FullDetail
+            doLog -entry ("actionType: ("+($actionType)+")") -Type loop
             
             $result[($actionType -as [int64])].FileCount++;
             if($actionType -ne [BackUpperActionType]::Nothing){              

@@ -27,29 +27,31 @@ Try {
     $DebugPreference = $VerbosePreference = $WarningPreference = $ErrorActionPreference = $InformationPreference = $Action;
 
     OpenLogBook;
-    doLog -entry "Start Backupping" -type ChapterStart
+    doLog -entry (cutpad -string "Start BackTheFuckUpper" -num 150) -type ChapterStart
+    doLog -entry "Start Configurations" -type ChapterStart
     doLog -entry ("InvokedFromURL: "+$InvokedFromURL) -Type Detail
     doLog -entry ("backupperscript: ("+$backupperscript+")") -Type Detail
     
     loadDependecies;    
-    CreateRegistryEntriesAndShortcuts;
+    CreateRegistryEntriesAndShortcuts;    
     
+    doLog -entry "Finished Configurations" -type ChapterEnd
     
+    doLog -entry "Get backing up informations" -type ChapterStart
+    $BackUpConfigs = (getBackUpConfigs -BackUps $script:configXML.Backups)
+    doLog -entry "Got backing up informations" -type ChapterEnd
+        
     doLog -entry "Start Jobs" -type ChapterStart
-
-    $Jobs = startJobs
+    $Jobs = startJobs -BackUpConfigs $BackUpConfigs
+    doLog -entry "Started Jobs" -type ChapterEnd
     
-    doLog -entry "Wait Jobs" -type Important
-
+    doLog -entry "Wait Jobs" -type ChapterStart
     waitJobs -Jobs $Jobs
+    doLog -entry "Waited Jobs" -type ChapterEnd
 
     doLog -entry "Receive Jobs" -type Important
-     
 
-    doLog -entry "Finished Jobs" -type ChapterEnd
-
-
-    doLog -entry "Back Up proccess finished!" -Type ChapterEnd
+    doLog -entry (cutpad -string "BackTheFuckUpper finished!" -num 150) -Type ChapterEnd
 
 } Catch  {
     if ($script:LogBook -eq $null) { 

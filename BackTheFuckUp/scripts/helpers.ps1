@@ -9,12 +9,12 @@ function OpenLogBook{
         [LogBook]$script:LogBook = [LogBook]::new($result); 
         $script:LogBook.LogBook_DefaultLogSource = ""; 
     }    
-    $script:LogBook.doLog("-----------------------------------------------------", [LogBookType]::Log);
+    $script:LogBook.doLog("----------------------------------------------------------------------------------------------------------", [LogBookType]::Log);
 }
 
 function CloseLogBook{    
     if ($script:LogBook -ne $null) { 
-        $script:LogBook.doLog("-----------------------------------------------------", [LogBookType]::Log);
+        $script:LogBook.doLog("----------------------------------------------------------------------------------------------------------", [LogBookType]::Log);
     }    
 }
 
@@ -72,9 +72,9 @@ function doLogJobFull([System.Management.Automation.Job]$Job){
         foreach($Out in $Output){
             [System.Management.Automation.InformationRecord]$IR =  $out;
             if($IR.Tags -notcontains "PSHOST"){
-                $logEntry = [LogEntry]::new($IR.ToString(), $out.tags[0], $script:Logbook);
+                $logEntry = [LogEntry]::new($out.tags[1]+$IR.ToString(), $out.tags[0], $script:Logbook);
                 $logEntry.LogSource = ($Job | Get-Job).Name;
-                $script:Logbook.doLogEntry($out.tags[1]+$logEntry);
+                $script:Logbook.doLogEntry($logEntry);
             }
         }
     }

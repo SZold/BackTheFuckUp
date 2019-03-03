@@ -1,16 +1,17 @@
 ﻿
 function loadDependecies(){
-    doLog -entry ("Load Dependecies") -Type Detail  
+    doLog -entry ("Load Dependecies") -Type Log  
     LogBook_TabIn;
     doInstallModule -name "BurntToast"
     LogBook_TabOut;
 }
 
 function doInstallModule($name){
+    doLog -entry ("doInstallModule( $name )") -Type FullDetail  
     if (-not(Get-Module -Name $name -ListAvailable))
     {        
         if(checkAdminRights){
-            doLog -entry ("Load $name module") -Type Detail  
+            doLog -entry ("Load $name module") -Type Log  
             LogBook_TabIn;
             try { 
                 $result = Install-Module -Name $name -Force -ErrorAction Stop
@@ -22,13 +23,13 @@ function doInstallModule($name){
             LogBook_TabOut;
         }
     }else{
-        doLog -entry ("Module $name already installed!") -Type FullDetail  
+        doLog -entry ("Module $name already installed!") -Type Detail  
     }
 
 }
 
 function CreateRegistryEntriesAndShortcuts(){
-    doLog -entry ("CreateRegistryEntriesAndShortcuts") -Type Detail  
+    doLog -entry ("CreateRegistryEntriesAndShortcuts") -Type Log  
     LogBook_TabIn;
      try { 
         $protocolName = $script:configXML.Configs.BackTheFuckUpProtocolName;
@@ -42,6 +43,8 @@ function CreateRegistryEntriesAndShortcuts(){
         CreateShortcut -shortcutFilePath:($PSScriptRoot+"\..\bin\Shortcut_DryRun.lnk") -TargetPath:($TargetPath) -Parameters:($Parameters.Replace("%1", "backupperscript:DryRun")) 
         $command = "Get-ChildItem '$PSScriptRoot\..\log\*.log' | sort LastWriteTime | select -last 1 | Get-Content -Wait "
         CreateShortcut -shortcutFilePath:($PSScriptRoot+"\..\bin\Shortcut_ViewLastLog.lnk") -TargetPath:($script:configXML.Configs.PowershellExecutable) -Parameters:(" -nologo -command `"&{$command}`"" ) 
+        $command = "Get-ChildItem '$PSScriptRoot\..\log\jobs\*.log' | sort LastWriteTime | select -last 1 | Get-Content -Wait "
+        CreateShortcut -shortcutFilePath:($PSScriptRoot+"\..\bin\Shortcut_ViewLastJobLog.lnk") -TargetPath:($script:configXML.Configs.PowershellExecutable) -Parameters:(" -nologo -command `"&{$command}`"" ) 
     } catch {        
         doLog -entry ("Error during CreateRegistryEntriesAndShortcuts: '"+$_+"'") -Type Exception        
     }  
@@ -67,17 +70,28 @@ function writeJobProgress($LogString, $PercentComplete){
     Write-Progress -Activity  "Check Jobs" -Status $LogString -PercentComplete $PercentComplete
 }
 
-function startJobs(){
-    doLog -entry ("startJobs()") -Type Detail
-    $Jobs = @()
-    $Total = 2
-    $LogString =""; 
-    for($i = 1; $i -le $Total; $i++){
-        doLog -entry ("Start-Job  -FilePath '"+($PSScriptRoot+"\BackUpJob.ps1")+"'  -Name '"+"test"+(10+$i)+"' started") -type Detail
-        doLog -entry ("  -ArgumentList '"+("test"+(10+$i))+"', '"+$PSScriptRoot+"\..\"+"', '"+($i*2)+"' started") -type FullDetail
-        $Jobs += Start-Job -FilePath ($PSScriptRoot+"\BackUpJob.ps1") -ArgumentList ("test"+(10+$i)), ($PSScriptRoot+"\..\"), ($i*2) -Name ("test"+(10+$i))
-        doLog -entry ("Job '"+("test"+$i)+"' started")
-        $LogStringTmp = "|"+(10+$Count)+":started"
+function startJobs($BackUpConfigs){
+    doLog -entry ("startJobs(BackUpConfigs= "+$BackUpConfigs.childNodes.Count+")") -Type Detail
+
+    $log = "";
+    foreach($childNodes in $BackUpConfigs.childNodes ){  $log += $childNodes.id + " | ";  }
+    doLog -entry ("BackUpConfigs.childNodes: "+$log) -type FullDetail 
+
+    
+    $Jobs = @();
+    $i = 0;
+    foreach($BackUpConfig in $BackUpConfigs.childNodes ){ 
+        $i++;
+        $JobName = $script:configXML.Configs.PowershellJobId.replace("{_JOBID_}",$i);
+        $BackUpConfigSerialized =  [System.Management.Automation.PSSerializer]::Serialize($BackUpConfig) ;
+
+        doLog -entry ("Start-Job  -FilePath '"+($PSScriptRoot+"\BackUpJob.ps1")+"'  -Name '$JobName' started") -type Detail
+        doLog -entry ("  -ArgumentList '$JobName', '"+$PSScriptRoot+"\..\"+"', '"+($BackUpConfig.length)+"' started") -type FullDetail
+
+        $Jobs += Start-Job -FilePath ($PSScriptRoot+"\BackUpJob.ps1") -ArgumentList ($JobName), ($PSScriptRoot+"\..\"), ($BackUpConfigSerialized) -Name $JobName
+        doLog -entry ("Job '$JobName ' started")
+
+        $LogStringTmp = "|$JobName :started"
         $LogStringTmp = $LogStringTmp.subString(0, [System.Math]::Min(15, $LogStringTmp.Length)).PadRight(15, " ") ;   
         $LogString += $LogStringTmp
     }
@@ -109,6 +123,8 @@ function waitJobs($Jobs){
                 doLogJob(($Job | Get-Job).ChildJobs[0]);
             }Catch {
                 doLog -entry ("Failed to get Job state for: "+($Job | Get-Job).Name) -type Error
+                doLog -entry ("'"+$_+"'") -Type Error
+                LogBook_TabOut;   
                 Start-Sleep -Milliseconds 100
                 Break
             }
@@ -136,4 +152,62 @@ function waitJobs($Jobs){
         doLogJob(($Job | Get-Job).ChildJobs[0]);
     }
     LogBook_TabOut;
+}
+
+function getBackUpConfigs($BackUps){
+    [OutputType([System.Xml.XmlElement])]
+
+    [System.Xml.XmlElement]$result = $BackUps.Clone();
+    $result.RemoveAll();
+    foreach( $BackupConfig in $BackUps.BackUp ){   
+        doLog -entry ("Loading BackupConfig: "+ $BackupConfig.id) -type Log
+        LogBook_TabIn;
+        [System.Xml.XmlElement]$concatConfig = $BackupConfig.Clone();
+        
+        $log = "";
+        foreach($targetpath in $concatConfig.target.path ){  $log += "'"+$targetpath + "'; ";  }
+        doLog -entry ("BackupConfig paths: '"+ $concatConfig.Source+"'  => "+ $log+"") -type FullDetail
+        
+        $concatConfig.AppendChild($BackUps.Whitelist.Clone()) | Out-Null;
+        $concatConfig.AppendChild($BackUps.BlackList.Clone()) | Out-Null;
+            
+        foreach($backupsCompareResult in $BackUps.CompareResults.CompareResult ){
+            $CompareResultFound = $false
+            foreach($concatCompareResult in $concatConfig.CompareResults.CompareResult ){
+                if($backupsCompareResult.InnerText -eq $concatCompareResult.InnerText){
+                    doLog -entry ("CompareResults No Override: "+$backupsCompareResult.InnerText) -type FullDetail 
+                    $CompareResultFound = $true
+                }    
+            }
+            if(-not $CompareResultFound){         
+                    doLog -entry ("CompareResults AppendChild: "+$backupsCompareResult.InnerText) -type FullDetail    
+                    $concatConfig.CompareResults.AppendChild($backupsCompareResult.Clone()) | Out-Null;
+            }
+        }
+
+        doLog -entry ("concatConfig.outerxml: "+$concatConfig.outerxml) -type Loop 
+        doLog -entry ("concatConfig.innerxml: "+$concatConfig.innerxml) -type Loop 
+        
+        $log = "";
+        foreach($childNodes in $concatConfig.Whitelist.childNodes ){  $log += $childNodes.Name + " | ";  }
+        doLog -entry ("BackupConfig.Whitelist.childNodes: "+$log) -type Detail 
+        
+        $log = "";
+        foreach($childNodes in $concatConfig.BlackList.childNodes ){  $log += $childNodes.Name + " | ";  }
+        doLog -entry ("BackupConfig.BlackList.childNodes: "+$log) -type Detail 
+
+        $log = "";
+        foreach($childNodes in $concatConfig.CompareResults.childNodes ){  $log += $childNodes.InnerText+"="+$childNodes.ActionType + " | ";  }
+        doLog -entry ("BackupConfig.CompareResults.childNodes: "+$log) -type Detail 
+        
+        LogBook_TabOut;
+        $result.AppendChild($concatConfig.Clone()) | Out-Null;
+        doLog -entry ("Loaded BackupConfig: "+ $BackupConfig.id) -type Success
+    }
+    
+    $log = "";
+    foreach($childNodes in $result.childNodes ){  $log += $childNodes.id + " | ";  }
+    doLog -entry ("result.childNodes: "+$log) -type Detail     
+
+    return $result
 }

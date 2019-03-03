@@ -1,8 +1,10 @@
 ﻿Param (
     [string]$JobId = "",
     [string]$ScriptRoot = $null,
-    [string]$sleep = 1
+    [string]$BackUpConfig = $null
 )
+
+$sleep = 1
 
 $Action = [System.Management.Automation.ActionPreference]::SilentlyContinue;
 $DebugPreference = $VerbosePreference = $WarningPreference = $ErrorActionPreference = $InformationPreference = $Action;
@@ -13,8 +15,8 @@ if($null -eq $ScriptRoot){$ScriptRoot =$PSScriptRoot}
 function configLogBook(){
     [LogBook]$script:LogBook = [LogBook]::new(); 
     $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level1, "", "\..\log\jobs\Error_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
-    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level6, "", "\..\log\jobs\Log_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
-    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::ScriptOutput, [LogBookLevel]::Level6, "{_ENTRY_}");
+    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level4, "", "\..\log\jobs\Log_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
+    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::ScriptOutput, [LogBookLevel]::Level4, "{_ENTRY_}");
     $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level6, "");
     doLog -entry ("OutputConfigs: ("+$script:LogBook.config.OutputConfigs.Count+")") -type Debug;
 }
@@ -26,7 +28,14 @@ function doLog{
     )
     
     if ($script:LogBook -eq $null) {
-        Write-Output ("["+[System.DateTime]::Now.ToString("MM-dd-yyyy HH:mm:ss.fff")+"]["+$Type+"]  "+$entry)
+        $log = "["+[System.DateTime]::Now.ToString("MM-dd-yyyy HH:mm:ss.fff")+"]["+$Type+"]  "+$entry
+        Write-Output ($log)
+
+        $filepath = $PSScriptRoot+"\BackUpJob_log.txt"
+        if (!(Test-Path $filepath)){
+           New-Item $filepath -type "file" -Force | Out-Null
+        }
+        $log | Out-File $filepath -Force -Append;
     }else{    
         $script:LogBook.doLog($entry, $Type);
     }
@@ -40,22 +49,33 @@ if(Test-Path ($logbookPath)){
 }else{
     doLog -entry ("LogBook was not found @ ("+$logbookPath+")") -type Error;
 }
+
+. ($ScriptRoot+'\scripts\BackUpper.ps1');
 #end include scripts
 
 Try {
     doLog -entry ("Starting Job: ("+$JobId+")") -type ChapterStart;
-    doLog -entry ("args("+$args[0]+"|"+$args[1]+"|"+$args[2]+")") -type log;
-
-    #Write-Progress -Activity "Running job" -Status 1 -PercentComplete 0 -CurrentOperation "Current: Starting";
-    sleep($sleep)
-    doLog -entry ("sajt1") -type Important;
-    sleep($sleep)
-    #Write-Progress -Activity "Running job3" -Status 3 -PercentComplete 100 -CurrentOperation "Current: Finished";
     
-    doLog -entry ("sajt2") -type Log;
-    sleep($sleep)
-    doLog -entry ("sajt3") -type FullDetail;
-    sleep($sleep)
+    if($BackUpConfig.Length -gt 0){
+        $DesBackUpConfig =  [System.Management.Automation.PSSerializer]::Deserialize($BackUpConfig) ;
+        doLog -entry ("BackUpConfig("+$DesBackUpConfig.id+")") -type log;
+        
+        doLog -entry ("DesBackUpConfig.Source("+$DesBackUpConfig.Source+")") -type Detail;
+        
+        foreach($TargetPath in $DesBackUpConfig.Target.path ){  
+            doLog -entry ("DesBackUpConfig.TargetPath("+$TargetPath+")") -type Detail;
+        }
+        [BackUpper]$BackUpper = [BackUpper]::new($DesBackUpConfig.Source, $TargetPath);
+    }else{
+        doLog -entry ("BackUpConfig() is null") -type error;
+        [BackUpper]$BackUpper = [BackUpper]::new("E:\temp\source", "E:\temp\target");
+    }
+    
+    doLog -entry ("BackUpper.doBackUp(true)") -type log;
+    $results = $BackUpper.doBackUp($true);
+    doLog -entry ("BackUpper.doBackUp(true)") -type Success;
+
+
     
     #Write-Progress "Current: Finished";
 } Catch  {

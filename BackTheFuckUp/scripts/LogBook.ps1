@@ -176,7 +176,7 @@ class LogBook{
         if($null -eq $config){
             $this.config.DateTimeFormat  = "MM-dd-yyyy HH:mm:ss.fff"   
             $this.config.DeltaTimeFormat = "mm:ss.fff"   
-            $this.config.OutputConfigs = @([LogBookOutputConfig]::new([LogBookOutput]::Memory, [LogBookLevel]::Level6));
+            $this.config.OutputConfigs = @([LogBookOutputConfig]::new([LogBookOutput]::Memory, [LogBookLevel]::Level4));
         }else{
             $this.config = $config;
         }
