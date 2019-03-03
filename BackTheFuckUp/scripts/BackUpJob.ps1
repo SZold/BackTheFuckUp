@@ -44,15 +44,14 @@ if(Test-Path ($logbookPath)){
 
 Try {
     doLog -entry ("Starting Job: ("+$JobId+")") -type ChapterStart;
-    doLog -entry ("args("+$args[0]+"|"+$args[1]+"|"+$args[2]+")") -type Detail;
+    doLog -entry ("args("+$args[0]+"|"+$args[1]+"|"+$args[2]+")") -type log;
 
     #Write-Progress -Activity "Running job" -Status 1 -PercentComplete 0 -CurrentOperation "Current: Starting";
     sleep($sleep)
     doLog -entry ("sajt1") -type Important;
-    #Write-Progress -Activity "Running job2" -Status 2 -PercentComplete 50 -CurrentOperation "Current: Running";
     sleep($sleep)
     #Write-Progress -Activity "Running job3" -Status 3 -PercentComplete 100 -CurrentOperation "Current: Finished";
-
+    
     doLog -entry ("sajt2") -type Log;
     sleep($sleep)
     doLog -entry ("sajt3") -type FullDetail;
@@ -65,7 +64,7 @@ Try {
         write-error ($_)  
     }else{       
         doLog -entry ("Unhandled exception occured: ") -Type Error   
-        doLog -entry ("'"+$_+"'") -Type Exception   
+        doLog -entry ("'"+$_+"'") -Type Exception           
     }  
 } Finally {
     doLog -entry ("Job Finished ("+$JobId+")") -type ChapterEnd;

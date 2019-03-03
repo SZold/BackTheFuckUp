@@ -40,7 +40,7 @@ Try {
     $Jobs = startJobs
     
     doLog -entry "Wait Jobs" -type Important
-   
+
     waitJobs -Jobs $Jobs
 
     doLog -entry "Receive Jobs" -type Important

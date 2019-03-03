@@ -47,9 +47,10 @@ function doLogJob([System.Management.Automation.Job]$Job){
     $Output = $Job.Information.ReadAll();
     
     LogBook_TabIn;
-    doLog -entry ("doLogJob |"+($Output.Count)+" | "+$Job.HasMoreData+"  | "+($Job | Get-Job).Name+" | ") -type debug
+    #doLog -entry ("doLogJob |"+($Output.Count)+" | "+$Job.HasMoreData+"  | "+($Job | Get-Job).Name+" | ") -type debug
     if($Output.Count -gt 0){
         foreach($Out in $Output){
+            #doLog -entry ("         doLogJob |"+$out.ToString()+" | ") -type debug
             [System.Management.Automation.InformationRecord]$IR =  $out;
             if($IR.Tags -notcontains "PSHOST"){
                 $text = "["+(cutpad ($Job | Get-Job).Name -num 8)+"]["+(cutpad $out.tags[0] -num 8)+"] "+$IR.ToString();
@@ -58,9 +59,9 @@ function doLogJob([System.Management.Automation.Job]$Job){
                 $script:Logbook.doLogEntry($logEntry);
             }
         }
+        $Job.Information.Clear();
     }
     LogBook_TabOut;
-    $Job.Information.Clear();
 }
 
 function doLogJobFull([System.Management.Automation.Job]$Job){        
@@ -73,7 +74,7 @@ function doLogJobFull([System.Management.Automation.Job]$Job){
             if($IR.Tags -notcontains "PSHOST"){
                 $logEntry = [LogEntry]::new($IR.ToString(), $out.tags[0], $script:Logbook);
                 $logEntry.LogSource = ($Job | Get-Job).Name;
-                $script:Logbook.doLogEntry($logEntry);
+                $script:Logbook.doLogEntry($out.tags[1]+$logEntry);
             }
         }
     }

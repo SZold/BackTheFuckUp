@@ -200,14 +200,11 @@ class LogBook{
 
     doLog([string]$entry, [LogBookType]$Type = [LogBookType]::Log){
         if($Type -eq [LogBookType]::ChapterEnd){ $this.TabOut(); }
-
-        [LogEntry]$log = [LogEntry]::new($entry, $Type, $this);       
         
-        $this.doLogEntry($log)        
-    
-        if($Type -eq [LogBookType]::ChapterStart){ $this.TabIn(); }
-
-        $this.LogBook_LastLogTime = $log.now;
+        [LogEntry]$log = [LogEntry]::new($entry, $Type, $this);               
+        $this.doLogEntry($log)            
+        if($Type -eq [LogBookType]::ChapterStart){ $this.TabIn(); }        
+        $this.LogBook_LastLogTime = $log.now;        
 
         if($Type -eq [LogBookType]::Exception){            
             exit 1
@@ -313,8 +310,9 @@ class LogBook{
     
 
     WriteOutput([LogEntry]$log, [LogBookOutputConfig]$Output){  
-        Write-Information $log.ToString($Output.OutputFormat) -Tags @($log.Type) ;
-        Write-Verbose $log.ToString()
+        Write-Information $log.ToString("{_ENTRY_}") -Tags @($log.Type, $log.ToString("{_TABS_}"))
+        Write-Verbose $log.ToString($Output.OutputFormat);
+        Write-Debug $log.ToString();
     }
 
     WriteHost([LogEntry]$log, [LogBookOutputConfig]$Output){  
@@ -341,13 +339,13 @@ class LogBook{
             Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "white" -backgroundcolor "magenta"
         }
         elseif($log.Type -eq [LogBookType]::Detail){
-            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "Gray" 
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "white" 
         }
         elseif($log.Type -eq [LogBookType]::FullDetail){
-            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "DarkGray" 
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "Gray" 
         }
         elseif($log.Type -eq [LogBookType]::Loop){
-            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "DarkBlue" 
+            Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "DarkGray" 
         }
         else{
             Write-Host $log.ToString($Output.OutputFormat) -foregroundcolor "yellow" 
