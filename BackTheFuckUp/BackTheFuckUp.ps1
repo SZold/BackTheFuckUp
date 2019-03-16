@@ -21,6 +21,7 @@ $DebugPreference = $VerbosePreference = $WarningPreference = $ErrorActionPrefere
 #end include scripts    
 
 Try {
+    $script:ProcessId = $pid
     loadConfigs($PSScriptRoot+"\config.xml");
     
     $Action = $script:ConfigXML.config.ActionPreference;
@@ -28,6 +29,7 @@ Try {
 
     OpenLogBook;
     doLog -entry (cutpad -string "Start BackTheFuckUpper" -num 150) -type ChapterStart
+    doLog -entry ("ProcessId: "+$script:ProcessId) -Type Detail
     doLog -entry "Start Configurations" -type ChapterStart
     doLog -entry ("InvokedFromURL: "+$InvokedFromURL) -Type Detail
     doLog -entry ("backupperscript: ("+$backupperscript+")") -Type Detail

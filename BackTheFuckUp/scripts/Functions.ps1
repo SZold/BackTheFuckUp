@@ -66,8 +66,9 @@ function AddAllRegistryEntries($protocolName, $ProceedAction){
     LogBook_TabOut;
 }
 
-function writeJobProgress($LogString, $PercentComplete){
-    Write-Progress -Activity  "Check Jobs" -Status $LogString -PercentComplete $PercentComplete
+function writeJobProgress($LogString, $PercentComplete, $id = "0", $parentId = "-1", $Activity = " "){
+    #doLog -entry ("writeJobProgress("+$LogString+")") -type debug
+    Write-Progress -Activity $Activity -Status $LogString -PercentComplete $PercentComplete -Id $id -ParentId $parentId
 }
 
 function startJobs($BackUpConfigs){
@@ -88,7 +89,7 @@ function startJobs($BackUpConfigs){
         doLog -entry ("Start-Job  -FilePath '"+($PSScriptRoot+"\BackUpJob.ps1")+"'  -Name '$JobName' started") -type Detail
         doLog -entry ("  -ArgumentList '$JobName', '"+$PSScriptRoot+"\..\"+"', '"+($BackUpConfig.length)+"' started") -type FullDetail
 
-        $Jobs += Start-Job -FilePath ($PSScriptRoot+"\BackUpJob.ps1") -ArgumentList ($JobName), ($PSScriptRoot+"\..\"), ($BackUpConfigSerialized) -Name $JobName
+        $Jobs += Start-Job -FilePath ($PSScriptRoot+"\BackUpJob.ps1") -ArgumentList ($JobName), ($PSScriptRoot+"\..\"), ($BackUpConfigSerialized) -Name $JobName 
         doLog -entry ("Job '$JobName ' started")
 
         $LogStringTmp = "|$JobName :started"
@@ -96,7 +97,7 @@ function startJobs($BackUpConfigs){
         $LogString += $LogStringTmp
     }
     
-    writeJobProgress -LogString $LogString -PercentComplete  0
+    writeJobProgress -Activity "Check Jobs" -LogString $LogString -PercentComplete 0 
     doLog -entry ("startJobs |"+$Count+" | "+(cutpad -string $percent -num 2)+"% | "+$LogString+" | ") -type Loop
 
     return $Jobs
@@ -108,19 +109,36 @@ function waitJobs($Jobs){
     $Comp = 0
     
     LogBook_TabIn;
+    [LogBook]$timeLB = [LogBook]::new(); 
+    $timeLB.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Memory, [LogBookLevel]::Level6);
+    
+    [LogEntry]$log = [LogEntry]::new("", "", $timeLB); 
+
     Do {    
         $TotProg++
         $Count = 0
-        $LogString =""; 
+        
+        $LogString ="";
+        if(0 -eq ($TotProg % 4)){
+            $TotProg = 0
+        }
+        if($TotProg -eq 0){$LogString = ("| ")+$LogString;  }
+        if($TotProg -eq 1){$LogString = ("/ ")+$LogString;  }
+        if($TotProg -eq 2){$LogString = ("- ")+$LogString;  }
+        if($TotProg -eq 3){$LogString = ("\ ")+$LogString;  }
+
+        $log = [LogEntry]::new("", "", $timeLB); 
+        $LogString = $LogString += (" | " +$log.ToString("[{_CURRENT_DATETIME_}][{_TIME_DELTA_START_}][{_USEDMEMSIZE8_}]")+ " ");
         
         ForEach ($Job in $Jobs){
             $Count++;
             Try {
-                $LogStringTmp = "|"+(10+$Count)+":"+($Job | Get-Job).State  
+                $LogStringTmp = "|"+(($Job | Get-Job).ChildJobs[0].Name)+":"+($Job | Get-Job).State  
                 $LogStringTmp = $LogStringTmp.subString(0, [System.Math]::Min(15, $LogStringTmp.Length)).PadRight(15, " ") ;   
                 $LogString += $LogStringTmp
                 doLog -entry ("doLogJob |"+(10+$Count)+"| "+($Job | Get-Job).ChildJobs.Count+" |  | "+$LogStringTmp+" | ") -type loop
                 doLogJob(($Job | Get-Job).ChildJobs[0]);
+                doLogJobProgress (($Job | Get-Job).ChildJobs[0]);
             }Catch {
                 doLog -entry ("Failed to get Job state for: "+($Job | Get-Job).Name) -type Error
                 doLog -entry ("'"+$_+"'") -Type Error
@@ -129,17 +147,10 @@ function waitJobs($Jobs){
                 Break
             }
         }
-        if(0 -eq ($TotProg % 4)){
-            $TotProg = 0
-        }
-        if($TotProg -eq 0){$LogString = ("| ")+$LogString;  }
-        if($TotProg -eq 1){$LogString = ("/ ")+$LogString;  }
-        if($TotProg -eq 2){$LogString = ("- ")+$LogString;  }
-        if($TotProg -eq 3){$LogString = ("\ ")+$LogString;  }
         # | / - \ 
         #doLog -entry $LogString -type debug         
         $percent =  ((($Jobs | Where State -eq "Completed").Count / $Jobs.Count)*100)
-        writeJobProgress -LogString $LogString -PercentComplete $percent
+        writeJobProgress -Activity "Check Jobs" -LogString $LogString -PercentComplete $percent 
         LogBook_TabOut;
         doLog -entry ("waitJobs |"+$Count+" | "+(cutpad -string $percent -num 2)+"% | "+$LogString+" | ") -type Loop
         LogBook_TabIn;

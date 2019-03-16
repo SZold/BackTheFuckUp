@@ -3,7 +3,7 @@
     [string]$ScriptRoot = $null,
     [string]$BackUpConfig = $null
 )
-
+$script:ProcessId = $pid
 $sleep = 1
 
 $Action = [System.Management.Automation.ActionPreference]::SilentlyContinue;
@@ -17,7 +17,8 @@ function configLogBook(){
     $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level1, "", "\..\log\jobs\Error_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
     $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level4, "", "\..\log\jobs\Log_job_"+$JobId+"_{_FILENAMEDATETIME_}.log", "yyyy-MM-dd");
     $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::ScriptOutput, [LogBookLevel]::Level4, "{_ENTRY_}");
-    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level6, "");
+    $script:LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level4, "");
+    
     doLog -entry ("OutputConfigs: ("+$script:LogBook.config.OutputConfigs.Count+")") -type Debug;
 }
 
@@ -54,7 +55,7 @@ if(Test-Path ($logbookPath)){
 #end include scripts
 
 Try {
-    doLog -entry ("Starting Job: ("+$JobId+")") -type ChapterStart;
+    doLog -entry ("Starting Job: ("+$JobId+") ("+$script:ProcessId+")") -type ChapterStart;
     
     if($BackUpConfig.Length -gt 0){
         $DesBackUpConfig =  [System.Management.Automation.PSSerializer]::Deserialize($BackUpConfig) ;
@@ -68,11 +69,13 @@ Try {
         [BackUpper]$BackUpper = [BackUpper]::new($DesBackUpConfig.Source, $TargetPath);
     }else{
         doLog -entry ("BackUpConfig() is null") -type error;
-        [BackUpper]$BackUpper = [BackUpper]::new("E:\temp\source", "E:\temp\target");
+        [BackUpper]$BackUpper = [BackUpper]::new("E:\temp", "C:\temp");
+        $FilterXML = "<Whitelist><Extensions><Extension>.txt</Extension></Extensions></Whitelist>
+		              <BlackList><Paths><Path>\temp\</Path></Paths></BlackList>";
     }
     
     doLog -entry ("BackUpper.doBackUp(true)") -type log;
-    $results = $BackUpper.doBackUp($true);
+    $results = $BackUpper.doBackUp($null, $true);
     doLog -entry ("BackUpper.doBackUp(true)") -type Success;
 
 

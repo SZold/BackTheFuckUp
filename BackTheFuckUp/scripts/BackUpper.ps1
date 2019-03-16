@@ -43,12 +43,17 @@ class BackUpper
     [BackUpperCompareType]$compareType
     [string[]]$WhiteListedExtensions
     [string[]]$BlackListedExtensions
+    $filter
 
     BackUpper([string]$SourcePath, [string]$TargetPath) {
        $this.SourcePath = (Resolve-Path ($SourcePath + '\')).Path;
        $this.TargetPath = (Resolve-Path ($TargetPath + '\')).Path;    
        $this.compareType = [BackUpperCompareType]::Size + [BackUpperCompareType]::ModificationDate #+ [BackUpperCompareType]::ExtensionAllowed
        $this.considerAllTargets = $true
+    }
+
+    addFilter($Filter){
+        $this.filter = $filter
     }
 
     [System.Object]findFilteredFiles([string]$path){
@@ -73,8 +78,9 @@ class BackUpper
                 }
             }
         }else{
-            doLog -entry ("Path not found | ("+$path+")") -Type Exception
+            doLog -entry ("Path not found ("+$path+")") -Type Exception
         }   
+        doLog -entry ("Found filtered files ("+$FilteredList.count+")") -Type Success
         LogBook_TabOut;
         return $FilteredList;
     }    
@@ -150,8 +156,8 @@ class BackUpper
         return $RelativePath;
     }
     
-    [BackUpperStats[]]doBackUp([bool]$DryRun = $false){ 
-        doLog -entry ("doBackUp($DryRun)") -Type ChapterStart
+    [BackUpperStats[]]doBackUp($filter = $null, [bool]$DryRun = $false){ 
+        doLog -entry ("doBackUp("+$filter.length+"; "+$DryRun+")") -Type ChapterStart
 
         [BackUpperStats[]]$result = [BackUpperStats[]]::new([Enum]::GetValues([BackUpperActionType]).Count);
         for($i = 0; $i -lt [Enum]::GetValues([BackUpperActionType]).Count; $i++){
@@ -175,7 +181,9 @@ class BackUpper
             $i++;
             
             $percent = [math]::Floor((($I / $combinedFiles.Count)*100));
-            Write-Progress -Activity "Gathering file informations" -Status "$percent% Complete:" -PercentComplete $percent -CurrentOperation "Current: '$relativeFilePath'";
+            Write-Progress -Activity "Copy File" -Status "$percent% Complete:" -PercentComplete $percent -CurrentOperation "'$relativeFilePath'";
+
+            sleep 1
 
             $sourceFileInfo = Get-ItemProperty -LiteralPath ($this.SourcePath+$relativeFilePath)
             $targetFileInfo = Get-ItemProperty -LiteralPath ($this.TargetPath+$relativeFilePath)  
@@ -202,6 +210,7 @@ class BackUpper
             LogBook_TabOut;
         } 
         LogBook_TabOut;
+        Write-Progress -Activity "Copied all files" -Status "100% Complete:" -PercentComplete 100 -CurrentOperation "";
         doLog -entry ("doBackUp($DryRun) finished!") -Type ChapterEnd
         return $result;
     }

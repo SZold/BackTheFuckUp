@@ -64,6 +64,27 @@ function doLogJob([System.Management.Automation.Job]$Job){
     LogBook_TabOut;
 }
 
+function doLogJobProgress([System.Management.Automation.Job]$Job){        
+    $Output = $Job.Progress.ReadAll();
+    
+    LogBook_TabIn;
+    #doLog -entry ("doLogJob |"+($Output.Count)+" | "+$Job.HasMoreData+"  | "+($Job | Get-Job).Name+" | ") -type debug
+    if($Output.Count -gt 0){
+        foreach($Out in $Output){
+            #doLog -entry ("         doLogJob |"+$out.ToString()+" | ") -type debug
+            [System.Management.Automation.ProgressRecord]$PR =  $out;
+            $memsize = $script:LogBook.getUsedMemorySize(($Job | Get-Job).Id);
+            $memsizefriendly = $script:LogBook.GetFriendlySize($memsize);
+            $activity = ("Job: "+($Job | Get-Job).Name);
+            $activity += (" Id: "+($Job | Get-Job).Id);
+            $activity += (" ["+$memsizefriendly+"]") 
+            writeJobProgress -Activity $activity -LogString ($pr.Activity+": "+$pr.CurrentOperation) -PercentComplete $pr.PercentComplete -id (($Job | Get-Job).id) -ParentId "0"
+        }
+        $Job.Progress.Clear();
+    }
+    LogBook_TabOut;
+}
+
 function doLogJobFull([System.Management.Automation.Job]$Job){        
     $Output = $Job.Information.ReadAll();
     
@@ -85,7 +106,7 @@ function doLogJobFull([System.Management.Automation.Job]$Job){
 function loadLogBookConfigs($xmlConfigs){
     [OutputType([LogBookConfig])]
     [LogBook]$LogBook = [LogBook]::new(); 
-    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level7);
+    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level1);
     $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level1, "", "/../log/preConfigLogError.log", "");
     Try {
 
@@ -118,7 +139,7 @@ function loadLogBookConfigs($xmlConfigs){
 
 function loadConfigs([string]$filename){ 
     [LogBook]$LogBook = [LogBook]::new(); 
-    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level7);
+    $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::Console, [LogBookLevel]::Level1);
     $LogBook.config.OutputConfigs += [LogBookOutputConfig]::new([LogBookOutput]::File, [LogBookLevel]::Level1, "", "/../log/preConfigLogError.log", "");
     $LogBook.doLog("loadConfigs("+$filename+")", [LogBookType]::Detail);
     Try {
@@ -222,7 +243,7 @@ Function CreateShortcut($shortcutFilePath, $TargetPath, $Parameters){
 }
 
 function GetFriendlySize($BytesParam) {
-$Bytes = [math]::Abs($BytesParam);
+    $Bytes = [math]::Abs($BytesParam);
     if ($Bytes -ge 1GB)
     {
         $Value = '{0:F2} {%FILESIZE_GB%}' -f ($Bytes / 1GB)

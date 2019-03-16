@@ -123,15 +123,28 @@ class LogEntry{
         return $this.ToString("");
     }
     
-    [string]ToString($OutputFormat){
+    [string]ToString([string]$OutputFormat){
         if($OutputFormat.length -gt 0){
             [string]$log = $OutputFormat;
         }else{
-            [string]$log = "[{_LOGSOURCE8_}][{_CURRENT_DATETIME_}][{_TIME_DELTA_START_}][{_TIME_DELTA_PREV_}][{_TYPE8_}]{_TABS_}{_ENTRY_}";
+            [string]$log = "[{_LOGSOURCE8_}][{_CURRENT_DATETIME_}][{_TIME_DELTA_START_}][{_TIME_DELTA_PREV_}][{_USEDCPUPERC4_}][{_USEDMEMSIZE8_}][{_TYPE8_}]{_TABS_}{_ENTRY_}";
         }
+        $cpuperc = 0# $this.LogBook.getCPUUsegePercent($script:ProcessId); //SZOLD - Takes 1 second for get-counter to get data. Get CPU usage in new job 
+        $cpupercfriendly = $cpuperc.ToString()+"%";
+        $memsize = $this.LogBook.getUsedMemorySize($script:ProcessId);
+        $memsizefriendly = $this.LogBook.GetFriendlySize($memsize);
+        $memperc = $this.LogBook.getUsedMemoryPercent($script:ProcessId).ToString()+"%";
+        
+
+        $log = $log.replace('{_USEDMEMSIZE_}',      $memsize);
+        $log = $log.replace('{_USEDMEMSIZE8_}',     $memsizefriendly.subString(0, [System.Math]::Min(8, $memsizefriendly.Length)).PadRight(8, " ") );        
+        $log = $log.replace('{_USEDMEMPERC_}',      $memperc);        
+        $log = $log.replace('{_USEDMEMPERC4_}',     $memperc.subString(0, [System.Math]::Min(4, $memperc.Length)).PadRight(4, " ") );    
+        $log = $log.replace('{_USEDCPUPERC_}',      $cpuperc.ToString().subString(0, [System.Math]::Min(4, $cpuperc.Length)).PadRight(4, " ") );        
+        $log = $log.replace('{_USEDCPUPERC4_}',     $cpupercfriendly.subString(0, [System.Math]::Min(4, $cpupercfriendly.Length)).PadRight(4, " ") );
 
         $log = $log.replace('{_LOGSOURCE8_}',       $this.LogSource.ToString().subString(0, [System.Math]::Min(8, $this.LogSource.ToString().Length)).PadRight(8, " ") );
-        $log = $log.replace('{_LOGSOURCE_}',        $this.LogSource.ToString());
+        $log = $log.replace('{_LOGSOURCE_}',        $this.LogSource.ToString());        
         $log = $log.replace('{_CURRENT_DATETIME_}', $this.now.ToString($this.LogBook.config.DateTimeFormat));
         $log = $log.replace('{_TIME_DELTA_START_}', $this.deltaStart.ToString($this.LogBook.config.DeltaTimeFormat));
         $log = $log.replace('{_TIME_DELTA_PREV_}',  $this.deltaLast.ToString($this.LogBook.config.DeltaTimeFormat));
@@ -181,8 +194,11 @@ class LogBook{
             $this.config = $config;
         }
 
+        if($script:ProcessId -eq $null){
+            $script:ProcessId = 0;
+        }
+
         $this.LogBook_StartTime = [System.DateTime]::Now
-        $this.LogBook_Level = [LogBookLevel]::Level5;
 
         for($i = 0; $i -lt [Enum]::GetValues([LogBookLevel]).Count; $i++){
             $this.LogBookLevels[$i] = [LogBookType]::new();        
@@ -363,6 +379,56 @@ class LogBook{
 
     [bool]isAllowed( [LogBookLevel]$Level, [LogBookType]$LogBookType){ 
         return ($this.getAllowedTypes($Level) -band $LogBookType);
+    }
+    
+    [int32]getUsedMemorySize($ProcessId = $pid){
+        (Get-process -Id $ProcessId | Select { $_.NonpagedSystemMemorySize });
+
+        $result = Get-process -Id $ProcessId | Select { $_.NonpagedSystemMemorySize };
+        return ($result.' $_.NonpagedSystemMemorySize ') ;
+    }
+    
+    [int32]getUsedMemoryPercent($ProcessId = $pid){
+        $totalMem = [Math]::Round((Get-WmiObject -Class win32_computersystem -ComputerName localhost).TotalPhysicalMemory/1Kb);
+        $usedMem = $this.getUsedMemorySize($ProcessId);
+        return ($usedMem / $totalMem);
+    }
+
+    [int32]getCPUUsegePercent($ProcessId = $pid){
+        # To match the CPU usage to for example Process Explorer you need to divide by the number of cores
+        $cpu_cores = (Get-WMIObject Win32_ComputerSystem).NumberOfLogicalProcessors
+
+        # This is to find the exact counter path, as you might have multiple processes with the same name
+        $proc_path = ((Get-Counter "\Process(*)\ID Process").CounterSamples | ? {$_.RawValue -eq $ProcessId}).Path
+
+        # We now get the CPU percentage
+        $prod_percentage_cpu = [Math]::Round(((Get-Counter ($proc_path -replace "\\id process$","\% Processor Time")).CounterSamples.CookedValue) / $cpu_cores)
+
+        return $prod_percentage_cpu;
+    }
+    
+    [string]GetFriendlySize($BytesParam) {
+        $Bytes = [math]::Abs($BytesParam);
+        if ($Bytes -ge 1GB)
+        {
+            $Value = '{0:F2}GB' -f ($Bytes / 1GB)
+        }
+        elseif ($Bytes -ge 1MB)
+        {
+            $Value = '{0:F2}MB' -f ($Bytes / 1MB)
+        }
+        elseif ($Bytes -ge 1KB)
+        {
+            $Value = '{0:F2}KB' -f ($Bytes / 1KB)
+        }
+        else
+        {
+            $Value = '{0}B' -f $Bytes
+        }
+        if($BytesParam -ne $Bytes){
+            $Value = '-'+$Value;
+        }
+        return $Value;
     }
 }
 
